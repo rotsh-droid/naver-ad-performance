@@ -118,14 +118,19 @@
       width: 36px; height: 36px; object-fit: cover;
       border-radius: 6px; border: 1px solid var(--border);
       cursor: zoom-in; vertical-align: middle; flex-shrink: 0;
-      transition: transform .2s ease, box-shadow .2s ease;
-      position: relative; z-index: 1;
     }
     .creative-img.kakao-bg { object-fit: contain; background: #fff; padding: 2px; }
-    .creative-img:hover { transform: scale(10); z-index: 999; box-shadow: 0 8px 40px rgba(0,0,0,.8); }
-    td:has(.creative-img) { overflow: visible !important; }
     .creative-name-link { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
     .creative-name-link:hover { color: #a5b4fc; }
+
+    /* Hover overlay */
+    #imgHover {
+      display: none; position: fixed; z-index: 9998; pointer-events: none;
+      background: #fff; border-radius: 10px; padding: 8px;
+      box-shadow: 0 12px 48px rgba(0,0,0,.55);
+      border: 1px solid #e2e8f0;
+    }
+    #imgHoverImg { display: block; object-fit: contain; border-radius: 6px; }
 
     /* Group separator row */
     tr.group-end td { border-bottom: 2px solid rgba(255,255,255,.18) !important; }
@@ -196,6 +201,9 @@
   </div>
 </div>
 
+<!-- Hover overlay -->
+<div id="imgHover"><img id="imgHoverImg" src="" alt="" /></div>
+
 <!-- Image Modal -->
 <div id="imgModal" onclick="closeImgModal()">
   <div id="imgModalInner" onclick="event.stopPropagation()">
@@ -215,6 +223,22 @@ function toDriveImg(url, sz='w120') {
   const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
   return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=${sz}` : url;
 }
+
+function showImgHover(el, e) {
+  const h=document.getElementById('imgHover'), img=document.getElementById('imgHoverImg');
+  img.src = el.dataset.large;
+  if (el.dataset.kakao==='1') { img.style.width='320px'; img.style.height='auto'; img.style.maxHeight='160px'; }
+  else                        { img.style.width='200px'; img.style.height='200px'; }
+  h.style.display='block'; moveImgHover(e);
+}
+function moveImgHover(e) {
+  const h=document.getElementById('imgHover');
+  let x=e.clientX+18, y=e.clientY+18;
+  if (x+350>window.innerWidth)  x=e.clientX-350;
+  if (y+220>window.innerHeight) y=e.clientY-220;
+  h.style.left=x+'px'; h.style.top=y+'px';
+}
+function hideImgHover() { document.getElementById('imgHover').style.display='none'; }
 
 function openImgModal(thumbUrl, largUrl, name) {
   document.getElementById('imgModalImg').src  = largUrl || thumbUrl;
@@ -265,7 +289,8 @@ function isKakao(m) { return (m||'').toLowerCase().includes('kakao'); }
 function addMetrics(r) { r.ctr=r.imp>0?r.clicks/r.imp*100:0; r.cpc=r.clicks>0?r.spent/r.clicks:0; r.roas=r.spent>0?r.revenue/r.spent*100:0; return r; }
 
 // ── State ────────────────────────────────────────────────────
-const state = { media:'all', dateFrom:null, dateTo:null, quick:null, event:null, adsetFilter:{}, overallDailyFilter:'' };
+const state = { media:'all', dateFrom:null, dateTo:null, quick:null, event:null, adsetFilter:{},
+  odMedia:'', odCampaign:'', odAdset:'' };
 let parsed = null, charts = {}, _minD = '', _maxD = '', imageMap = {};
 
 // ── Parse ────────────────────────────────────────────────────
@@ -335,8 +360,20 @@ function parseRaw(data) {
     const m=adsMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
   });
 
+  // Lookup tables for cascading dropdowns
+  const mediaToCampaigns={}, campaignToAdsets={};
+  rows.forEach(r=>{
+    if(!mediaToCampaigns[r.media]) mediaToCampaigns[r.media]=new Set();
+    mediaToCampaigns[r.media].add(r.campaign);
+    if(!campaignToAdsets[r.campaign]) campaignToAdsets[r.campaign]=new Set();
+    campaignToAdsets[r.campaign].add(r.adset);
+  });
+  Object.keys(mediaToCampaigns).forEach(k=>mediaToCampaigns[k]=[...mediaToCampaigns[k]].sort());
+  Object.keys(campaignToAdsets).forEach(k=>campaignToAdsets[k]=[...campaignToAdsets[k]].sort());
+
   return {
     events,
+    mediaToCampaigns, campaignToAdsets,
     mediaRows:        agg(mMap),
     adsetRows:        agg(aMap),
     dailyRows:        agg(dMap).sort((a,b)=>a.date.localeCompare(b.date)),
@@ -584,29 +621,32 @@ function renderCompTable(comp, total) {
 // ── Unified daily section (전체 탭) ───────────────────────────
 function renderUnifiedDailySection() {
   const el = document.getElementById('dailySections');
-  const medias    = [...new Set(parsed.dailyRows.map(r=>r.media))];
-  const campaigns = [...new Set(parsed.campaignDailyRows.map(r=>r.campaign))];
-  const adsets    = [...new Set(parsed.adsetDailyRows.map(r=>r.adset))];
-  const sel       = state.overallDailyFilter;
+  const allMedias = [...new Set(parsed.dailyRows.map(r=>r.media))];
 
-  const opts = `
-    <option value="" ${!sel?'selected':''}>전체</option>
-    <optgroup label="── 매체">
-      ${medias.map(m=>`<option value="media:${m}" ${sel==='media:'+m?'selected':''}>${m}</option>`).join('')}
-    </optgroup>
-    <optgroup label="── 캠페인">
-      ${campaigns.map(c=>`<option value="campaign:${c}" ${sel==='campaign:'+c?'selected':''}>${c}</option>`).join('')}
-    </optgroup>
-    <optgroup label="── 그룹">
-      ${adsets.map(a=>`<option value="adset:${a}" ${sel==='adset:'+a?'selected':''}>${a}</option>`).join('')}
-    </optgroup>
-  `;
+  // 캠페인 목록: 매체 선택 시 해당 매체 캠페인만
+  const campaigns = state.odMedia
+    ? (parsed.mediaToCampaigns[state.odMedia]||[])
+    : [...new Set(parsed.campaignDailyRows.map(r=>r.campaign))].sort();
+
+  // 그룹 목록: 캠페인 선택 시 해당 캠페인 그룹만, 아니면 매체 기준
+  let adsets;
+  if (state.odCampaign)     adsets = parsed.campaignToAdsets[state.odCampaign]||[];
+  else if (state.odMedia)   adsets = [...new Set(Object.entries(parsed.campaignToAdsets).filter(([c])=>(parsed.mediaToCampaigns[state.odMedia]||[]).includes(c)).flatMap(([,a])=>a))].sort();
+  else                       adsets = [...new Set(parsed.adsetDailyRows.map(r=>r.adset))].sort();
+
+  const sel = v => v ? `selected` : '';
+
+  const mediaOpts    = `<option value="">매체 전체</option>`+allMedias.map(m=>`<option value="${m}" ${state.odMedia===m?'selected':''}>${m}</option>`).join('');
+  const campaignOpts = `<option value="">캠페인 전체</option>`+campaigns.map(c=>`<option value="${c}" ${state.odCampaign===c?'selected':''}>${c}</option>`).join('');
+  const adsetOpts    = `<option value="">그룹 전체</option>`+adsets.map(a=>`<option value="${a}" ${state.odAdset===a?'selected':''}>${a}</option>`).join('');
 
   el.innerHTML = `
     <div class="media-section">
-      <div class="media-header">
+      <div class="media-header" style="flex-wrap:wrap;gap:8px">
         <span style="font-size:13px;font-weight:700;color:var(--text)">일별 누적 성과</span>
-        <select class="custom-select" id="overallDailySelect" style="min-width:200px">${opts}</select>
+        <select class="custom-select" id="odMediaSel" style="min-width:130px">${mediaOpts}</select>
+        <select class="custom-select" id="odCampaignSel" style="min-width:160px">${campaignOpts}</select>
+        <select class="custom-select" id="odAdsetSel" style="min-width:160px">${adsetOpts}</select>
       </div>
       <div class="three-col">
         <div class="card"><div class="chart-label">📈 일별 노출수 / 클릭수</div><div class="chart-sm"><canvas id="cIC_u"></canvas></div></div>
@@ -620,39 +660,38 @@ function renderUnifiedDailySection() {
     </div>
   `;
 
-  document.getElementById('overallDailySelect').addEventListener('change', e=>{
-    state.overallDailyFilter = e.target.value; render();
+  document.getElementById('odMediaSel').addEventListener('change', e=>{
+    state.odMedia=e.target.value; state.odCampaign=''; state.odAdset=''; render();
+  });
+  document.getElementById('odCampaignSel').addEventListener('change', e=>{
+    state.odCampaign=e.target.value; state.odAdset=''; render();
+  });
+  document.getElementById('odAdsetSel').addEventListener('change', e=>{
+    state.odAdset=e.target.value; render();
   });
 
   buildUnifiedDailyCharts();
 }
 
 function buildUnifiedDailyCharts() {
-  const sel = state.overallDailyFilter;
   let rows;
-
-  if (!sel) {
-    // 전체 합산
+  if (state.odAdset) {
+    rows = parsed.adsetDailyRows.filter(r=>r.adset===state.odAdset&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
+  } else if (state.odCampaign) {
+    rows = parsed.campaignDailyRows.filter(r=>r.campaign===state.odCampaign&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
+  } else if (state.odMedia) {
+    rows = parsed.dailyRows.filter(r=>r.media===state.odMedia&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
+  } else {
     const m={};
     parsed.dailyRows.filter(filterDate).forEach(r=>{
       if(!m[r.date]) m[r.date]={date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
       const d=m[r.date]; d.spent+=r.spent;d.imp+=r.imp;d.clicks+=r.clicks;d.revenue+=r.revenue;d.orders+=r.orders||0;
     });
     rows = Object.values(m).map(r=>addMetrics({...r})).sort((a,b)=>a.date.localeCompare(b.date));
-  } else if (sel.startsWith('media:')) {
-    const v=sel.slice(6);
-    rows = parsed.dailyRows.filter(r=>r.media===v&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
-  } else if (sel.startsWith('campaign:')) {
-    const v=sel.slice(9);
-    rows = parsed.campaignDailyRows.filter(r=>r.campaign===v&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
-  } else if (sel.startsWith('adset:')) {
-    const v=sel.slice(6);
-    rows = parsed.adsetDailyRows.filter(r=>r.adset===v&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
   }
 
-  // Color based on selection
   let c = {bg:'rgba(99,102,241,.8)',border:'#6366f1',light:'rgba(99,102,241,.15)'};
-  if (sel?.startsWith('media:')) c = colorOf(sel.slice(6));
+  if (state.odMedia) c = colorOf(state.odMedia);
 
   const dates = rows.map(r=>r.date);
 
@@ -840,7 +879,7 @@ function buildMediaCharts(media, idx, dRows) {
           const rowCls = isGroupEnd ? ' class="group-end"' : '';
           const imgCls = `creative-img${kakaoMedia?' kakao-bg':''}`;
           const imgTag = img
-            ? `<img class="${imgCls}" src="${img.thumb}" onclick="openImgModal('${img.thumb}','${img.large}','${(r.ads||'').replace(/'/g,"\\'")}');event.stopPropagation()" onerror="this.style.display='none'" />`
+            ? `<img class="${imgCls}" src="${img.thumb}" data-large="${img.large}" data-kakao="${kakaoMedia?'1':'0'}" onmouseenter="showImgHover(this,event)" onmousemove="moveImgHover(event)" onmouseleave="hideImgHover()" onclick="openImgModal('${img.thumb}','${img.large}','${(r.ads||'').replace(/'/g,"\\'")}');event.stopPropagation()" onerror="this.style.display='none'" />`
             : '';
           const nameSpan = img
             ? `<span class="creative-name-link" onclick="openImgModal('${img.thumb}','${img.large}','${(r.ads||'').replace(/'/g,"\\'")}')">` + (r.ads||'-') + `</span>`

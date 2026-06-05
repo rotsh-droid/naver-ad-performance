@@ -163,7 +163,15 @@
 </div>
 
 <script>
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoZ7VJvp5y0Bg8pzGzArUblfuGMpi8CsJxVEjDFxvdj1qeKICl4dc88ZauWHr_nFAdGFxQEO1kOA5p/pub?gid=0&single=true&output=csv';
+const CSV_URL   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoZ7VJvp5y0Bg8pzGzArUblfuGMpi8CsJxVEjDFxvdj1qeKICl4dc88ZauWHr_nFAdGFxQEO1kOA5p/pub?gid=0&single=true&output=csv';
+const IMAGE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoZ7VJvp5y0Bg8pzGzArUblfuGMpi8CsJxVEjDFxvdj1qeKICl4dc88ZauWHr_nFAdGFxQEO1kOA5p/pub?gid=1516577223&single=true&output=csv';
+
+// 구글 드라이브 링크 → 썸네일 URL 변환
+function toDriveImg(url) {
+  if (!url) return '';
+  const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w120` : url;
+}
 
 Chart.defaults.color = '#94a3b8';
 Chart.defaults.borderColor = '#263347';
@@ -205,7 +213,7 @@ function addMetrics(r) { r.ctr=r.imp>0?r.clicks/r.imp*100:0; r.cpc=r.clicks>0?r.
 
 // ── State ────────────────────────────────────────────────────
 const state = { media:'all', dateFrom:null, dateTo:null, quick:null, event:null, adsetFilter:{} };
-let parsed = null, charts = {}, _minD = '', _maxD = '';
+let parsed = null, charts = {}, _minD = '', _maxD = '', imageMap = {};
 
 // ── Parse ────────────────────────────────────────────────────
 function parseRaw(data) {
@@ -278,10 +286,29 @@ function parseRaw(data) {
 
 // ── Load ─────────────────────────────────────────────────────
 function loadData() {
-  Papa.parse(CSV_URL, {
+  // 이미지 시트 먼저 로드 후 메인 데이터 로드
+  Papa.parse(IMAGE_URL, {
     download:true, header:true, skipEmptyLines:true,
-    complete:({data}) => { parsed=parseRaw(data); initUI(); render(); },
-    error:err => { document.getElementById('content').innerHTML=`<div class="state-box">⚠️ 오류: ${err.message}</div>`; }
+    complete:({data}) => {
+      data.forEach(r => {
+        const ads = (r['ads (소재)']||'').trim();
+        const url = (r['이미지 URL']||'').trim();
+        if (ads && url) imageMap[ads] = toDriveImg(url);
+      });
+      Papa.parse(CSV_URL, {
+        download:true, header:true, skipEmptyLines:true,
+        complete:({data}) => { parsed=parseRaw(data); initUI(); render(); },
+        error:err => { document.getElementById('content').innerHTML=`<div class="state-box">⚠️ 오류: ${err.message}</div>`; }
+      });
+    },
+    error:() => {
+      // 이미지 로드 실패해도 메인 데이터는 표시
+      Papa.parse(CSV_URL, {
+        download:true, header:true, skipEmptyLines:true,
+        complete:({data}) => { parsed=parseRaw(data); initUI(); render(); },
+        error:err => { document.getElementById('content').innerHTML=`<div class="state-box">⚠️ 오류: ${err.message}</div>`; }
+      });
+    }
   });
 }
 
@@ -612,18 +639,31 @@ function buildMediaCharts(media, idx, dRows) {
   adsRows.forEach(r=>{aSub.spent+=r.spent;aSub.imp+=r.imp;aSub.clicks+=r.clicks;aSub.revenue+=r.revenue;aSub.orders+=r.orders||0;});
   const aCtr=aSub.imp>0?aSub.clicks/aSub.imp*100:0, aCpc=aSub.clicks>0?aSub.spent/aSub.clicks:0, aRoas=aSub.spent>0?aSub.revenue/aSub.spent*100:0;
 
-  const td = s => `style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left"`;
+  const tdStyle = `style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left"`;
   document.getElementById(`adsTbl_${idx}`).innerHTML=`
     <table>
-      <thead><tr><th style="text-align:left">캠페인</th><th style="text-align:left">그룹명</th><th style="text-align:left">소재명</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th></tr></thead>
+      <thead><tr>
+        <th style="text-align:left">이미지</th>
+        <th style="text-align:left">캠페인</th>
+        <th style="text-align:left">그룹명</th>
+        <th style="text-align:left">소재명</th>
+        <th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th>
+      </tr></thead>
       <tbody>
-        ${adsRows.map(r=>`<tr>
-          <td ${td()}>${r.campaign||'-'}</td>
-          <td ${td()}>${r.adset||'-'}</td>
-          <td ${td()}>${r.ads||'-'}</td>
-          <td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td>
-        </tr>`).join('')}
-        <tr class="tbl-total"><td>합계</td><td>-</td><td>-</td><td>${fmt.won(aSub.spent)}</td><td>${fmt.num(aSub.imp)}</td><td>${fmt.num(aSub.clicks)}</td><td>${fmt.pct(aCtr)}</td><td>${fmt.won(aCpc)}</td><td>${fmt.won(aSub.revenue)}</td><td>${fmt.roas(aRoas)}</td></tr>
+        ${adsRows.map(r=>{
+          const imgUrl = imageMap[r.ads]||'';
+          const imgCell = imgUrl
+            ? `<td style="padding:6px 12px"><img src="${imgUrl}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:block" onerror="this.style.display='none'" /></td>`
+            : `<td style="color:var(--text3);text-align:center">-</td>`;
+          return `<tr>
+            ${imgCell}
+            <td ${tdStyle}>${r.campaign||'-'}</td>
+            <td ${tdStyle}>${r.adset||'-'}</td>
+            <td ${tdStyle}>${r.ads||'-'}</td>
+            <td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td>
+          </tr>`;
+        }).join('')}
+        <tr class="tbl-total"><td>-</td><td>합계</td><td>-</td><td>-</td><td>${fmt.won(aSub.spent)}</td><td>${fmt.num(aSub.imp)}</td><td>${fmt.num(aSub.clicks)}</td><td>${fmt.pct(aCtr)}</td><td>${fmt.won(aCpc)}</td><td>${fmt.won(aSub.revenue)}</td><td>${fmt.roas(aRoas)}</td></tr>
       </tbody>
     </table>`;
 }

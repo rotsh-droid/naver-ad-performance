@@ -237,11 +237,11 @@ function parseRaw(data) {
   });
   const mediaRows = agg(mMap);
 
-  // Campaign-level aggregation
+  // Adset (그룹)-level aggregation
   const cMap = {};
   rows.forEach(r => {
-    const key = r.media+'||'+r.campaign;
-    if (!cMap[key]) cMap[key] = {media:r.media, campaign:r.campaign, spent:0, imp:0, clicks:0, revenue:0, orders:0};
+    const key = r.media+'||'+r.adset;
+    if (!cMap[key]) cMap[key] = {media:r.media, campaign:r.campaign, adset:r.adset, spent:0, imp:0, clicks:0, revenue:0, orders:0};
     const m=cMap[key]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
   });
   const campaignRows = agg(cMap);
@@ -353,7 +353,7 @@ function getCompData() {
     return { type:'media', rows, labels:rows.map(r=>r.media), spent:rows.map(r=>r.spent), revenue:rows.map(r=>r.revenue), clicks:rows.map(r=>r.clicks), ctr:rows.map(r=>r.ctr), imp:rows.map(r=>r.imp), cpc:rows.map(r=>r.cpc), roas:rows.map(r=>r.roas), colors:rows.map(r=>colorOf(r.media)) };
   }
   const rows = parsed.campaignRows.filter(r => state.media==='meta' ? isFb(r.media) : isKakao(r.media));
-  return { type:'campaign', rows, labels:rows.map(r=>r.campaign), spent:rows.map(r=>r.spent), revenue:rows.map(r=>r.revenue), clicks:rows.map(r=>r.clicks), ctr:rows.map(r=>r.ctr), imp:rows.map(r=>r.imp), cpc:rows.map(r=>r.cpc), roas:rows.map(r=>r.roas), colors:rows.map((_,i)=>pc(i)) };
+  return { type:'campaign', rows, labels:rows.map(r=>r.adset), spent:rows.map(r=>r.spent), revenue:rows.map(r=>r.revenue), clicks:rows.map(r=>r.clicks), ctr:rows.map(r=>r.ctr), imp:rows.map(r=>r.imp), cpc:rows.map(r=>r.cpc), roas:rows.map(r=>r.roas), colors:rows.map((_,i)=>pc(i)) };
 }
 
 // ── Render ────────────────────────────────────────────────────
@@ -460,7 +460,7 @@ function renderCTRChart(comp) {
 // ── Comparison table ──────────────────────────────────────────
 function renderCompTable(comp, total) {
   const isCamp = comp.type === 'campaign';
-  const firstTh = isCamp ? '캠페인명' : '매체';
+  const firstTh = isCamp ? '그룹명 (Adset)' : '매체';
   const tSpent = comp.spent.reduce((s,v)=>s+v,0);
   const tRev   = comp.revenue.reduce((s,v)=>s+v,0);
 
@@ -468,7 +468,7 @@ function renderCompTable(comp, total) {
     const sp = tSpent>0?(r.spent/tSpent*100).toFixed(1):0;
     const rp = tRev>0?(r.revenue/tRev*100).toFixed(1):0;
     const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${comp.colors[i].border};margin-right:6px;flex-shrink:0"></span>`;
-    const name = isCamp ? r.campaign : r.media;
+    const name = isCamp ? r.adset : r.media;
     return `<tr><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${dot}${name}</td><td>${fmt.won(r.spent)} <small style="color:var(--text3)">(${sp}%)</small></td><td>${fmt.won(r.revenue)} <small style="color:var(--text3)">(${rp}%)</small></td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td></tr>`;
   }).join('');
 

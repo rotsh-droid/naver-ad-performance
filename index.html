@@ -22,31 +22,17 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-    /* Layout */
     .layout { display: flex; min-height: 100vh; }
 
     /* Sidebar */
-    .sidebar {
-      width: 230px; min-height: 100vh; background: var(--sidebar);
-      border-right: 1px solid var(--border);
-      position: fixed; top: 0; left: 0; z-index: 100;
-      display: flex; flex-direction: column;
-    }
-    .sidebar-brand {
-      padding: 20px 16px 16px; border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; gap: 10px;
-    }
-    .sidebar-brand-icon { font-size: 22px; }
-    .sidebar-brand h2   { font-size: 14px; font-weight: 700; }
-    .sidebar-brand p    { font-size: 11px; color: var(--text3); margin-top: 2px; }
-    .sidebar-section    { padding: 20px 0 8px; }
-    .sidebar-label      { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; padding: 0 16px 6px; }
-    .nav-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 9px 16px; margin: 1px 8px; border-radius: 8px;
-      font-size: 12px; color: var(--text2); cursor: pointer; transition: all .2s;
-    }
-    .nav-item:hover { background: rgba(99,102,241,.1); color: var(--text); }
+    .sidebar { width: 230px; min-height: 100vh; background: var(--sidebar); border-right: 1px solid var(--border); position: fixed; top: 0; left: 0; z-index: 100; display: flex; flex-direction: column; overflow-y: auto; }
+    .sidebar-brand { padding: 20px 16px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .sidebar-brand h2 { font-size: 14px; font-weight: 700; }
+    .sidebar-brand p  { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .sidebar-section  { padding: 16px 0 8px; }
+    .sidebar-label    { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; padding: 0 16px 6px; }
+    .nav-item { display: flex; align-items: center; gap: 8px; padding: 9px 16px; margin: 1px 8px; border-radius: 8px; font-size: 12px; color: var(--text2); cursor: pointer; transition: all .2s; }
+    .nav-item:hover  { background: rgba(99,102,241,.1); color: var(--text); }
     .nav-item.active { background: rgba(99,102,241,.18); color: var(--accent); font-weight: 600; }
     .nav-dot  { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
     .nav-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -55,27 +41,16 @@
     .main-wrapper { margin-left: 230px; flex: 1; display: flex; flex-direction: column; }
 
     /* Topbar */
-    .topbar {
-      background: var(--sidebar); border-bottom: 1px solid var(--border);
-      padding: 11px 24px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-      position: sticky; top: 0; z-index: 50;
-    }
+    .topbar { background: var(--sidebar); border-bottom: 1px solid var(--border); padding: 11px 24px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; position: sticky; top: 0; z-index: 50; }
     .topbar-label { font-size: 11px; font-weight: 600; color: var(--text3); }
     .media-tabs, .quick-btns { display: flex; gap: 5px; }
-    .media-tab, .quick-btn {
-      padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border);
-      background: transparent; color: var(--text2); font-size: 12px; font-weight: 600;
-      cursor: pointer; transition: all .2s;
-    }
+    .media-tab, .quick-btn { padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s; }
     .media-tab:hover, .quick-btn:hover { border-color: var(--accent); color: var(--accent); }
     .media-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
     .quick-btn.active { background: rgba(99,102,241,.2); border-color: var(--accent); color: var(--accent); }
     .topbar-sep { width: 1px; height: 22px; background: var(--border); }
     .date-range { display: flex; align-items: center; gap: 6px; }
-    .date-input {
-      background: var(--card); border: 1px solid var(--border); border-radius: 7px;
-      padding: 5px 9px; font-size: 12px; color: var(--text); outline: none; color-scheme: dark;
-    }
+    .date-input { background: var(--card); border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 12px; color: var(--text); outline: none; color-scheme: dark; }
     .date-input:focus { border-color: var(--accent); }
     .date-sep { font-size: 12px; color: var(--text3); }
 
@@ -83,19 +58,12 @@
     .content { padding: 22px 24px; display: flex; flex-direction: column; gap: 22px; }
 
     /* Info strip */
-    .info-strip {
-      display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
-      background: rgba(99,102,241,.07); border: 1px solid rgba(99,102,241,.2);
-      border-radius: 10px; padding: 10px 16px;
-    }
+    .info-strip { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; background: rgba(99,102,241,.07); border: 1px solid rgba(99,102,241,.2); border-radius: 10px; padding: 10px 16px; }
     .info-chip { font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 5px; }
     .info-chip strong { color: var(--text); }
 
     /* Section */
-    .sec-title {
-      font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 14px;
-      display: flex; align-items: center; gap: 8px;
-    }
+    .sec-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
     .sec-title::before { content:''; display:inline-block; width:3px; height:15px; background:var(--accent); border-radius:2px; }
 
     /* Card */
@@ -120,11 +88,7 @@
     .tbl-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     thead tr { background: rgba(255,255,255,.03); }
-    th {
-      padding: 9px 12px; text-align: right; font-weight: 600; color: var(--text3);
-      font-size: 10px; text-transform: uppercase; letter-spacing: .4px;
-      border-bottom: 1px solid var(--border); white-space: nowrap;
-    }
+    th { padding: 9px 12px; text-align: right; font-weight: 600; color: var(--text3); font-size: 10px; text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
     th:first-child { text-align: left; }
     td { padding: 9px 12px; text-align: right; border-bottom: 1px solid rgba(255,255,255,.03); color: var(--text); }
     td:first-child { text-align: left; }
@@ -147,10 +111,9 @@
 <body>
 <div class="layout">
 
-  <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="sidebar-brand-icon">📊</div>
+      <div style="font-size:22px">📊</div>
       <div><h2>광고 성과</h2><p>Dashboard</p></div>
     </div>
     <div class="sidebar-section">
@@ -159,10 +122,7 @@
     </div>
   </aside>
 
-  <!-- Main -->
   <div class="main-wrapper">
-
-    <!-- Topbar -->
     <div class="topbar">
       <span class="topbar-label">매체</span>
       <div class="media-tabs">
@@ -185,8 +145,6 @@
         <button class="quick-btn" data-quick="14days">14일</button>
       </div>
     </div>
-
-    <!-- Content -->
     <div class="content" id="content">
       <div class="state-box"><div class="spinner"></div><span>데이터 불러오는 중…</span></div>
     </div>
@@ -194,7 +152,7 @@
 </div>
 
 <script>
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoZ7VJvp5y0Bg8pzGzArUblfuGMpi8CsJxVEjDFxvdj1qeKICl4dc88ZauWHr_nFAdGFxQEO1kOA5p/pub?output=csv';
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoZ7VJvp5y0Bg8pzGzArUblfuGMpi8CsJxVEjDFxvdj1qeKICl4dc88ZauWHr_nFAdGFxQEO1kOA5p/pub?gid=0&single=true&output=csv';
 
 Chart.defaults.color       = '#94a3b8';
 Chart.defaults.borderColor = '#263347';
@@ -203,6 +161,15 @@ const COLORS = {
   fb:    { bg:'rgba(79,131,235,.8)',  border:'#4f83eb', light:'rgba(79,131,235,.15)' },
   kakao: { bg:'rgba(245,159,0,.8)',   border:'#f59f00', light:'rgba(245,159,0,.15)'  },
 };
+const PALETTE = [
+  {bg:'rgba(99,102,241,.8)',border:'#6366f1'},{bg:'rgba(59,130,246,.8)',border:'#3b82f6'},
+  {bg:'rgba(16,185,129,.8)',border:'#10b981'},{bg:'rgba(245,158,11,.8)',border:'#f59e0b'},
+  {bg:'rgba(239,68,68,.8)',border:'#ef4444'}, {bg:'rgba(168,85,247,.8)',border:'#a855f7'},
+  {bg:'rgba(20,184,166,.8)',border:'#14b8a6'},{bg:'rgba(249,115,22,.8)',border:'#f97316'},
+  {bg:'rgba(236,72,153,.8)',border:'#ec4899'},{bg:'rgba(132,204,22,.8)',border:'#84cc16'},
+  {bg:'rgba(6,182,212,.8)',border:'#06b6d4'}, {bg:'rgba(251,191,36,.8)',border:'#fbbf24'},
+];
+const pc = i => PALETTE[i % PALETTE.length];
 
 const fmt = {
   won:  v => isNaN(+v) ? '-' : '₩' + Math.round(+v).toLocaleString('ko-KR'),
@@ -217,79 +184,116 @@ function parseNum(s) {
 }
 
 function colorOf(media) {
-  const k = (media||'').toLowerCase();
+  const k=(media||'').toLowerCase();
   if (k.includes('facebook')||k.includes('meta')||k.includes('fb')) return COLORS.fb;
   if (k.includes('kakao')) return COLORS.kakao;
-  return { bg:'rgba(148,163,184,.8)', border:'#94a3b8', light:'rgba(148,163,184,.15)' };
+  return {bg:'rgba(148,163,184,.8)',border:'#94a3b8',light:'rgba(148,163,184,.15)'};
 }
-
 function isFb(m)    { const k=(m||'').toLowerCase(); return k.includes('facebook')||k.includes('meta')||k.includes('fb'); }
 function isKakao(m) { return (m||'').toLowerCase().includes('kakao'); }
 
-const state = { media:'all', dateFrom:null, dateTo:null, quick:null };
+function addMetrics(r) {
+  r.ctr  = r.imp    > 0 ? r.clicks / r.imp    * 100 : 0;
+  r.cpc  = r.clicks > 0 ? r.spent  / r.clicks      : 0;
+  r.roas = r.spent  > 0 ? r.revenue/ r.spent  * 100 : 0;
+  return r;
+}
+
+// ── State ─────────────────────────────────────────────────────
+const state = { media:'all', dateFrom:null, dateTo:null, quick:null, event:null };
 let parsed = null;
 let charts = {};
 
-// ── Parse ──────────────────────────────────────────────────────
-function parseReport(rows) {
-  const eventName  = (rows.find(r => r[1] && r[1].trim() && !['Total','Campaign','Period','Date of Report','Spent'].some(x=>r[1].includes(x)))?.[1]||'').trim();
-  const period     = (rows.find(r => r[1]==='Period')?.[2]||'').trim();
-  const reportDate = (rows.find(r => r[1]==='Date of Report')?.[2]||'').trim();
+// ── Parse raw CSV ─────────────────────────────────────────────
+function parseRaw(data) {
+  const rows = data.map(r => ({
+    year:     +r['year'],
+    month:    +r['month'],
+    weeknum:  +r['weeknum'],
+    date:     (r['date']||'').trim(),
+    media:    (r['media_source']||'').trim(),
+    campaign: (r['campaign (캠페인명)']||'').trim(),
+    adset:    (r['adset (그룹명)']||'').trim(),
+    ads:      (r['ads (소재)']||'').trim(),
+    spent:    parseNum(r['spent']),
+    imp:      parseNum(r['imp']),
+    clicks:   parseNum(r['clicks']),
+    revenue:  parseNum(r['거래액']),
+    orders:   parseNum(r['쇼핑 주문수(총)']),
+    event:    (r['기획전명']||'').trim(),
+  })).filter(r => r.date && r.date.match(/\d{4}-\d{2}-\d{2}/));
 
-  const totalSecIdx    = rows.findIndex(r => r.some(c=>c?.includes('매체별 Total 누적 성과')));
-  const totalHeaderIdx = rows.findIndex((r,i) => i>totalSecIdx && r[1]==='매체');
-  const mediaRows = [];
-  if (totalHeaderIdx>=0) {
-    for (let i=totalHeaderIdx+1; i<rows.length; i++) {
-      const r=rows[i], media=(r[1]||'').trim();
-      if (!media||media==='Total'||media==='Sub Total') break;
-      mediaRows.push({ media, budget:parseNum(r[3]), spent:parseNum(r[4]), imp:parseNum(r[6]), clicks:parseNum(r[7]), ctr:parseNum(r[8]), cpc:parseNum(r[9]), revenue:parseNum(r[10]), roas:parseNum(r[11]) });
-    }
+  const events = [...new Set(rows.map(r=>r.event).filter(Boolean))].sort();
+
+  function agg(groups) {
+    return Object.values(groups).map(r => addMetrics({...r}));
   }
 
-  const dailySecIdx = rows.findIndex(r => r.some(c=>c?.includes('매체별 일별 누적 성과')));
-  let dailyHeaderIdx=-1;
-  for (let i=dailySecIdx; i<rows.length; i++) {
-    if ((rows[i][1]==='매체'||rows[i][12]==='매체')&&rows[i][2]==='일자') { dailyHeaderIdx=i; break; }
-  }
-  const dailyRows=[];
-  if (dailyHeaderIdx>=0) {
-    let fbName='Facebook Ads (Instagram)', kkName='Kakao';
-    for (let i=dailyHeaderIdx+1; i<rows.length; i++) {
-      const r=rows[i];
-      if (r[1]==='Sub Total'&&r[12]==='Sub Total') break;
-      if (r[1]==='Sub Total') break;
-      if (r[1]&&r[1]!=='Sub Total') fbName=r[1];
-      if (r[12]&&r[12]!=='Sub Total') kkName=r[12];
-      const fbDate=(r[2]||'').trim(), kkDate=(r[13]||'').trim();
-      if (fbDate.match(/\d{4}-\d{2}-\d{2}/)) dailyRows.push({ media:fbName, date:fbDate, day:r[3], spent:parseNum(r[4]), imp:parseNum(r[5]), clicks:parseNum(r[6]), ctr:parseNum(r[7]), cpc:parseNum(r[8]), revenue:parseNum(r[9]), roas:parseNum(r[10]) });
-      if (kkDate.match(/\d{4}-\d{2}-\d{2}/)) dailyRows.push({ media:kkName, date:kkDate, day:r[14], spent:parseNum(r[15]), imp:parseNum(r[16]), clicks:parseNum(r[17]), ctr:parseNum(r[18]), cpc:parseNum(r[19]), revenue:parseNum(r[20]), roas:parseNum(r[21]) });
-    }
-  }
-  return { eventName, period, reportDate, mediaRows, dailyRows };
+  // Media-level aggregation
+  const mMap = {};
+  rows.forEach(r => {
+    if (!mMap[r.media]) mMap[r.media] = {media:r.media, spent:0, imp:0, clicks:0, revenue:0, orders:0, budget:0};
+    const m=mMap[r.media]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
+  });
+  const mediaRows = agg(mMap);
+
+  // Campaign-level aggregation
+  const cMap = {};
+  rows.forEach(r => {
+    const key = r.media+'||'+r.campaign;
+    if (!cMap[key]) cMap[key] = {media:r.media, campaign:r.campaign, spent:0, imp:0, clicks:0, revenue:0, orders:0};
+    const m=cMap[key]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
+  });
+  const campaignRows = agg(cMap);
+
+  // Daily-level aggregation (media × date)
+  const dMap = {};
+  rows.forEach(r => {
+    const key = r.media+'||'+r.date;
+    if (!dMap[key]) dMap[key] = {media:r.media, date:r.date, spent:0, imp:0, clicks:0, revenue:0, orders:0};
+    const m=dMap[key]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
+  });
+  const dailyRows = agg(dMap).sort((a,b)=>a.date.localeCompare(b.date));
+
+  return { events, mediaRows, campaignRows, dailyRows };
 }
 
-// ── Load ───────────────────────────────────────────────────────
+// ── Load ──────────────────────────────────────────────────────
 function loadData() {
   Papa.parse(CSV_URL, {
-    download:true, skipEmptyLines:false,
-    complete:({data}) => { parsed=parseReport(data); initUI(); render(); },
+    download:true, header:true, skipEmptyLines:true,
+    complete:({data}) => { parsed=parseRaw(data); initUI(); render(); },
     error:err => {
       document.getElementById('content').innerHTML=`<div class="state-box">⚠️ 데이터를 불러올 수 없습니다.<br><small>${err.message}</small></div>`;
     }
   });
 }
 
-// ── Init UI ────────────────────────────────────────────────────
+// ── Init UI ───────────────────────────────────────────────────
 function initUI() {
-  document.getElementById('sidebarNav').innerHTML=`<div class="nav-item active"><span class="nav-dot"></span><span class="nav-text">${parsed.eventName||'기획전'}</span></div>`;
+  // Sidebar events
+  const nav = document.getElementById('sidebarNav');
+  state.event = parsed.events[0] || null;
+  nav.innerHTML = parsed.events.map((e,i) =>
+    `<div class="nav-item ${i===0?'active':''}" data-event="${e}"><span class="nav-dot"></span><span class="nav-text" title="${e}">${e}</span></div>`
+  ).join('');
+  nav.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      state.event = item.dataset.event;
+      nav.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+      item.classList.add('active');
+      render();
+    });
+  });
 
-  const dates=[...new Set(parsed.dailyRows.map(r=>r.date))].sort();
-  const minD=dates[0]||'', maxD=dates[dates.length-1]||'';
+  // Date range
+  const allDates = parsed.dailyRows.map(r=>r.date).sort();
+  const minD = allDates[0]||'', maxD = allDates[allDates.length-1]||'';
   state.dateFrom=minD; state.dateTo=maxD;
   document.getElementById('dateFrom').value=minD;
   document.getElementById('dateTo').value=maxD;
 
+  // Media tabs
   document.querySelectorAll('.media-tab').forEach(btn=>{
     btn.addEventListener('click',()=>{
       state.media=btn.dataset.media; state.quick=null;
@@ -298,10 +302,11 @@ function initUI() {
     });
   });
 
+  // Date inputs
   document.getElementById('dateFrom').addEventListener('change',e=>{state.dateFrom=e.target.value;state.quick=null;clearQuick();render();});
   document.getElementById('dateTo').addEventListener('change',e=>{state.dateTo=e.target.value;state.quick=null;clearQuick();render();});
 
-  const dates2=[...dates];
+  // Quick buttons
   document.querySelectorAll('.quick-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const q=btn.dataset.quick;
@@ -311,62 +316,67 @@ function initUI() {
         document.getElementById('dateFrom').value=minD; document.getElementById('dateTo').value=maxD;
       } else {
         state.quick=q; clearQuick(); btn.classList.add('active');
-        const max=new Date(maxD);
-        if (q==='yesterday') {
-          const d=new Date(maxD); d.setDate(d.getDate()-1); const s=d.toISOString().slice(0,10);
-          state.dateFrom=s; state.dateTo=s;
-          document.getElementById('dateFrom').value=s; document.getElementById('dateTo').value=s;
-        } else if (q==='7days') {
-          const d=new Date(maxD); d.setDate(d.getDate()-6); const s=d.toISOString().slice(0,10);
-          state.dateFrom=s; state.dateTo=maxD;
-          document.getElementById('dateFrom').value=s; document.getElementById('dateTo').value=maxD;
-        } else if (q==='14days') {
-          const d=new Date(maxD); d.setDate(d.getDate()-13); const s=d.toISOString().slice(0,10);
-          state.dateFrom=s; state.dateTo=maxD;
-          document.getElementById('dateFrom').value=s; document.getElementById('dateTo').value=maxD;
-        }
+        const d=new Date(maxD);
+        if (q==='yesterday')  { d.setDate(d.getDate()-1); const s=d.toISOString().slice(0,10); state.dateFrom=s; state.dateTo=s; document.getElementById('dateFrom').value=s; document.getElementById('dateTo').value=s; }
+        else if (q==='7days') { d.setDate(d.getDate()-6); const s=d.toISOString().slice(0,10); state.dateFrom=s; state.dateTo=maxD; document.getElementById('dateFrom').value=s; document.getElementById('dateTo').value=maxD; }
+        else if (q==='14days'){ d.setDate(d.getDate()-13);const s=d.toISOString().slice(0,10); state.dateFrom=s; state.dateTo=maxD; document.getElementById('dateFrom').value=s; document.getElementById('dateTo').value=maxD; }
       }
       render();
     });
   });
 }
-
 function clearQuick() { document.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active')); }
 
-// ── Filtered ────────────────────────────────────────────────────
-function filteredMedia() {
-  return (parsed?.mediaRows||[]).filter(r=>{
+// ── Filtered helpers ──────────────────────────────────────────
+function filterRow(r) {
+  if (state.media==='meta'  && !isFb(r.media))    return false;
+  if (state.media==='kakao' && !isKakao(r.media)) return false;
+  if (state.event && r.event !== undefined && r.event !== state.event) return false;
+  return true;
+}
+
+function filteredDailyRaw() {
+  // Re-aggregate daily from raw considering all filters including date
+  return parsed.dailyRows.filter(r => {
     if (state.media==='meta'  && !isFb(r.media))    return false;
     if (state.media==='kakao' && !isKakao(r.media)) return false;
+    if (state.dateFrom && r.date < state.dateFrom)  return false;
+    if (state.dateTo   && r.date > state.dateTo)    return false;
     return true;
   });
 }
 
-function filteredDaily() {
-  return (parsed?.dailyRows||[]).filter(r=>{
-    if (state.media==='meta'  && !isFb(r.media))    return false;
-    if (state.media==='kakao' && !isKakao(r.media)) return false;
-    if (state.dateFrom && r.date<state.dateFrom) return false;
-    if (state.dateTo   && r.date>state.dateTo)   return false;
-    return true;
-  });
+// ── Comparison data (전체: media / 메타|카카오: campaign) ──────
+function getCompData() {
+  if (state.media === 'all') {
+    const rows = parsed.mediaRows;
+    return { type:'media', rows, labels:rows.map(r=>r.media), spent:rows.map(r=>r.spent), revenue:rows.map(r=>r.revenue), clicks:rows.map(r=>r.clicks), ctr:rows.map(r=>r.ctr), imp:rows.map(r=>r.imp), cpc:rows.map(r=>r.cpc), roas:rows.map(r=>r.roas), colors:rows.map(r=>colorOf(r.media)) };
+  }
+  const rows = parsed.campaignRows.filter(r => state.media==='meta' ? isFb(r.media) : isKakao(r.media));
+  return { type:'campaign', rows, labels:rows.map(r=>r.campaign), spent:rows.map(r=>r.spent), revenue:rows.map(r=>r.revenue), clicks:rows.map(r=>r.clicks), ctr:rows.map(r=>r.ctr), imp:rows.map(r=>r.imp), cpc:rows.map(r=>r.cpc), roas:rows.map(r=>r.roas), colors:rows.map((_,i)=>pc(i)) };
 }
 
-// ── Render ──────────────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────
 function render() {
   if (!parsed) return;
-  const mRows=filteredMedia(), dRows=filteredDaily();
-  const medias=mRows.map(r=>r.media);
-  const total={spent:0,revenue:0,imp:0,clicks:0};
-  mRows.forEach(r=>{total.spent+=r.spent;total.revenue+=r.revenue;total.imp+=r.imp;total.clicks+=r.clicks;});
-  total.ctr  = total.imp>0    ? total.clicks/total.imp*100     : 0;
-  total.roas = total.spent>0  ? total.revenue/total.spent*100  : 0;
-  total.cpc  = total.clicks>0 ? total.spent/total.clicks       : 0;
+  const comp = getCompData();
+  const dRows = filteredDailyRaw();
+  const dailyMedias = [...new Set(dRows.map(r=>r.media))];
 
-  const dailyMedias=[...new Set(dRows.map(r=>r.media))];
+  // Total KPI (filtered by date + media + event from daily rows)
+  const total = {spent:0, revenue:0, imp:0, clicks:0, orders:0};
+  dRows.forEach(r => { total.spent+=r.spent; total.revenue+=r.revenue; total.imp+=r.imp; total.clicks+=r.clicks; total.orders+=r.orders||0; });
+  total.ctr  = total.imp>0    ? total.clicks/total.imp*100    : 0;
+  total.roas = total.spent>0  ? total.revenue/total.spent*100 : 0;
+  total.cpc  = total.clicks>0 ? total.spent/total.clicks      : 0;
 
-  document.getElementById('content').innerHTML=`
-    <div class="info-strip" id="infoStrip"></div>
+  const dateStr = state.dateFrom===state.dateTo ? state.dateFrom : `${state.dateFrom} ~ ${state.dateTo}`;
+
+  document.getElementById('content').innerHTML = `
+    <div class="info-strip">
+      <div class="info-chip">📌 기획전: <strong>${state.event||'-'}</strong></div>
+      <div class="info-chip">📅 기간: <strong>${dateStr||'-'}</strong></div>
+    </div>
     <div>
       <div class="sec-title">전체 요약</div>
       <div class="kpi-grid" id="kpiGrid"></div>
@@ -378,25 +388,20 @@ function render() {
         <div class="card"><div class="chart-label">🛒 거래액 비중</div><div class="chart-sm"><canvas id="cRevenue"></canvas></div></div>
         <div class="card"><div class="chart-label">👆 클릭수 / CTR 비교</div><div class="chart-sm"><canvas id="cCTR"></canvas></div></div>
       </div>
-      <div class="card" style="margin-top:14px"><div class="tbl-wrap" id="mediaTable"></div></div>
+      <div class="card" style="margin-top:14px"><div class="tbl-wrap" id="compTable"></div></div>
     </div>
     <div id="dailySections"></div>
   `;
 
-  document.getElementById('infoStrip').innerHTML=`
-    <div class="info-chip">📌 기획전: <strong>${parsed.eventName||'-'}</strong></div>
-    <div class="info-chip">📅 기간: <strong>${parsed.period||'-'}</strong></div>
-    <div class="info-chip">📄 보고일: <strong>${parsed.reportDate||'-'}</strong></div>
-  `;
-
   renderKPI(total);
-  renderDonut('cSpent',   medias, mRows.map(r=>r.spent));
-  renderDonut('cRevenue', medias, mRows.map(r=>r.revenue));
-  renderCTRChart(medias, mRows);
-  renderMediaTable(medias, mRows, total);
+  renderDonut('cSpent',   comp.labels, comp.spent,   comp.colors);
+  renderDonut('cRevenue', comp.labels, comp.revenue, comp.colors);
+  renderCTRChart(comp);
+  renderCompTable(comp, total);
   renderDailySections(dailyMedias, dRows);
 }
 
+// ── KPI ──────────────────────────────────────────────────────
 function renderKPI(t) {
   document.getElementById('kpiGrid').innerHTML=[
     {label:'총 광고비', value:fmt.won(t.spent),   sub:'집행 비용 합계'},
@@ -407,73 +412,81 @@ function renderKPI(t) {
   ].map(c=>`<div class="kpi-card"><div class="kpi-label">${c.label}</div><div class="kpi-value">${c.value}</div><div class="kpi-sub">${c.sub}</div></div>`).join('');
 }
 
+// ── Charts ────────────────────────────────────────────────────
 function dc(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
 
-function renderDonut(id, labels, values) {
+function renderDonut(id, labels, values, colors) {
   dc(id);
   const total=values.reduce((s,v)=>s+v,0);
   const ctx=document.getElementById(id)?.getContext('2d'); if(!ctx)return;
+  const many=labels.length>4;
+  // Truncate long labels
+  const shortLabels=labels.map(l=>l.length>20?l.slice(0,19)+'…':l);
   charts[id]=new Chart(ctx,{
     type:'doughnut',
-    data:{labels,datasets:[{data:values,backgroundColor:labels.map(l=>colorOf(l).bg),borderColor:labels.map(l=>colorOf(l).border),borderWidth:2,hoverOffset:6}]},
+    data:{labels:shortLabels,datasets:[{data:values,backgroundColor:colors.map(c=>c.bg),borderColor:colors.map(c=>c.border),borderWidth:2,hoverOffset:6}]},
     options:{
-      responsive:true,maintainAspectRatio:false,cutout:'68%',
+      responsive:true,maintainAspectRatio:false,cutout:'62%',
       plugins:{
-        legend:{position:'bottom',labels:{font:{size:12},padding:14,color:'#94a3b8'}},
+        legend:{position:'bottom',labels:{font:{size:many?9:11},padding:many?6:12,color:'#94a3b8',boxWidth:10}},
         tooltip:{callbacks:{label:c=>{const p=total>0?(c.raw/total*100).toFixed(1):0;return ` ${c.label}: ${fmt.won(c.raw)} (${p}%)`;}}}
       }
     }
   });
 }
 
-function renderCTRChart(medias, rows) {
+function renderCTRChart(comp) {
   dc('cCTR');
   const ctx=document.getElementById('cCTR')?.getContext('2d'); if(!ctx)return;
+  const many=comp.labels.length>4;
+  const short=comp.labels.map(l=>l.length>18?l.slice(0,17)+'…':l);
   charts['cCTR']=new Chart(ctx,{
-    data:{
-      labels:medias,
-      datasets:[
-        {type:'bar',label:'클릭수',data:rows.map(r=>r.clicks),backgroundColor:medias.map(m=>colorOf(m).bg),borderColor:medias.map(m=>colorOf(m).border),borderWidth:2,borderRadius:5,yAxisID:'yL'},
-        {type:'line',label:'CTR (%)',data:rows.map(r=>r.ctr),borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',borderWidth:2.5,pointRadius:7,pointBackgroundColor:'#22c55e',yAxisID:'yR',tension:0.3,fill:false}
-      ]
-    },
+    data:{labels:short,datasets:[
+      {type:'bar',label:'클릭수',data:comp.clicks,backgroundColor:comp.colors.map(c=>c.bg),borderColor:comp.colors.map(c=>c.border),borderWidth:1,borderRadius:4,yAxisID:'yL'},
+      {type:'line',label:'CTR (%)',data:comp.ctr,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',borderWidth:2,pointRadius:many?3:6,pointBackgroundColor:'#22c55e',yAxisID:'yR',tension:0.3,fill:false}
+    ]},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'top',labels:{font:{size:12},padding:12,color:'#94a3b8'}},tooltip:{callbacks:{label:c=>c.dataset.label==='CTR (%)'?` CTR: ${c.raw}%`:` 클릭수: ${fmt.num(c.raw)}`}}},
+      plugins:{legend:{position:'top',labels:{font:{size:11},padding:10,color:'#94a3b8'}},tooltip:{callbacks:{label:c=>c.dataset.label==='CTR (%)'?` CTR: ${(+c.raw).toFixed(2)}%`:` 클릭수: ${fmt.num(c.raw)}`}}},
       scales:{
         yL:{type:'linear',position:'left',ticks:{callback:v=>fmt.num(v),font:{size:10}},grid:{color:'#263347'},title:{display:true,text:'클릭수',font:{size:10},color:'#64748b'}},
         yR:{type:'linear',position:'right',ticks:{callback:v=>v+'%',font:{size:10}},grid:{drawOnChartArea:false},title:{display:true,text:'CTR',font:{size:10},color:'#64748b'}},
-        x:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:12}}}
+        x:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:many?9:11},maxRotation:many?50:0,maxTicksLimit:10}}
       }
     }
   });
 }
 
-function renderMediaTable(medias, rows, total) {
-  const tbody=rows.map(r=>{
-    const sp=total.spent>0?(r.spent/total.spent*100).toFixed(1):0;
-    const rp=total.revenue>0?(r.revenue/total.revenue*100).toFixed(1):0;
-    return `<tr><td>${r.media}</td><td>${fmt.won(r.budget)}</td><td>${fmt.won(r.spent)} <small style="color:var(--text3)">(${sp}%)</small></td><td>${fmt.won(r.revenue)} <small style="color:var(--text3)">(${rp}%)</small></td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td></tr>`;
+// ── Comparison table ──────────────────────────────────────────
+function renderCompTable(comp, total) {
+  const isCamp = comp.type === 'campaign';
+  const firstTh = isCamp ? '캠페인명' : '매체';
+  const tSpent = comp.spent.reduce((s,v)=>s+v,0);
+  const tRev   = comp.revenue.reduce((s,v)=>s+v,0);
+
+  const tbody = comp.rows.map((r,i)=>{
+    const sp = tSpent>0?(r.spent/tSpent*100).toFixed(1):0;
+    const rp = tRev>0?(r.revenue/tRev*100).toFixed(1):0;
+    const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${comp.colors[i].border};margin-right:6px;flex-shrink:0"></span>`;
+    const name = isCamp ? r.campaign : r.media;
+    return `<tr><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${dot}${name}</td><td>${fmt.won(r.spent)} <small style="color:var(--text3)">(${sp}%)</small></td><td>${fmt.won(r.revenue)} <small style="color:var(--text3)">(${rp}%)</small></td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td></tr>`;
   }).join('');
+
   const ctr=total.imp>0?total.clicks/total.imp*100:0, cpc=total.clicks>0?total.spent/total.clicks:0;
-  document.getElementById('mediaTable').innerHTML=`
+  document.getElementById('compTable').innerHTML=`
     <table>
-      <thead><tr><th>매체</th><th>예산</th><th>광고비</th><th>거래액</th><th>ROAS</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th></tr></thead>
-      <tbody>${tbody}<tr class="tbl-total"><td>합계</td><td>-</td><td>${fmt.won(total.spent)}</td><td>${fmt.won(total.revenue)}</td><td>${fmt.roas(total.roas)}</td><td>${fmt.num(total.imp)}</td><td>${fmt.num(total.clicks)}</td><td>${fmt.pct(ctr)}</td><td>${fmt.won(cpc)}</td></tr></tbody>
+      <thead><tr><th>${firstTh}</th><th>광고비</th><th>거래액</th><th>ROAS</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th></tr></thead>
+      <tbody>${tbody}<tr class="tbl-total"><td>합계</td><td>${fmt.won(total.spent)}</td><td>${fmt.won(total.revenue)}</td><td>${fmt.roas(total.roas)}</td><td>${fmt.num(total.imp)}</td><td>${fmt.num(total.clicks)}</td><td>${fmt.pct(ctr)}</td><td>${fmt.won(cpc)}</td></tr></tbody>
     </table>`;
 }
 
-// ── Daily sections ───────────────────────────────────────────────
+// ── Daily sections ────────────────────────────────────────────
 function renderDailySections(mediaList, dRows) {
-  const el=document.getElementById('dailySections');
-  if(!mediaList.length){el.innerHTML='';return;}
+  const el=document.getElementById('dailySections'); if(!mediaList.length){el.innerHTML='';return;}
   el.innerHTML=mediaList.map((media,idx)=>{
     const cls=isFb(media)?'badge-fb':'badge-kakao';
     return `<div class="media-section">
-      <div class="media-header">
-        <span class="media-badge ${cls}">${media}</span>
-        <span style="font-size:13px;font-weight:600;color:var(--text2)">매체별 일별 누적 성과</span>
-      </div>
+      <div class="media-header"><span class="media-badge ${cls}">${media}</span><span style="font-size:13px;font-weight:600;color:var(--text2)">매체별 일별 누적 성과</span></div>
       <div class="three-col">
         <div class="card"><div class="chart-label">📈 일별 노출수 / 클릭수</div><div class="chart-sm"><canvas id="cIC_${idx}"></canvas></div></div>
         <div class="card"><div class="chart-label">💵 일별 CPC 변화</div><div class="chart-sm"><canvas id="cCPC_${idx}"></canvas></div></div>
@@ -485,56 +498,44 @@ function renderDailySections(mediaList, dRows) {
 
   mediaList.forEach((media,idx)=>{
     const rows=dRows.filter(r=>r.media===media).sort((a,b)=>a.date.localeCompare(b.date));
-    const dates=rows.map(r=>r.date);
-    const c=colorOf(media);
+    const dates=rows.map(r=>r.date), c=colorOf(media);
 
-    // Chart1: 노출수/클릭수
     dc(`cIC_${idx}`);
     const ctx1=document.getElementById(`cIC_${idx}`)?.getContext('2d');
     if(ctx1) charts[`cIC_${idx}`]=new Chart(ctx1,{
       data:{labels:dates,datasets:[
         {type:'bar',label:'노출수',data:rows.map(r=>r.imp),backgroundColor:c.light,borderColor:c.border,borderWidth:1,borderRadius:3,yAxisID:'yL'},
         {type:'line',label:'클릭수',data:rows.map(r=>r.clicks),borderColor:'#22c55e',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#22c55e',yAxisID:'yR',tension:0.3}
-      ]},
-      options:dualOpts(v=>fmt.num(v),v=>fmt.num(v),'노출수','클릭수')
+      ]},options:dualOpts(v=>fmt.num(v),v=>fmt.num(v),'노출수','클릭수')
     });
 
-    // Chart2: CPC
     dc(`cCPC_${idx}`);
     const ctx2=document.getElementById(`cCPC_${idx}`)?.getContext('2d');
     if(ctx2) charts[`cCPC_${idx}`]=new Chart(ctx2,{
       type:'line',
       data:{labels:dates,datasets:[{label:'CPC',data:rows.map(r=>r.cpc),borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.1)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#f97316',tension:0.3,fill:true}]},
-      options:{
-        responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' CPC: '+fmt.won(c.raw)}}},
-        scales:{y:{ticks:{callback:v=>'₩'+(v>=1000?(v/1000).toFixed(0)+'K':v),font:{size:10}},grid:{color:'#263347'}},x:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:10},maxRotation:45,maxTicksLimit:8}}}
-      }
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' CPC: '+fmt.won(c.raw)}}},scales:{y:{ticks:{callback:v=>'₩'+(v>=1000?(v/1000).toFixed(0)+'K':v),font:{size:10}},grid:{color:'#263347'}},x:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:10},maxRotation:45,maxTicksLimit:8}}}}
     });
 
-    // Chart3: 거래액/ROAS
     dc(`cRev_${idx}`);
     const ctx3=document.getElementById(`cRev_${idx}`)?.getContext('2d');
     if(ctx3) charts[`cRev_${idx}`]=new Chart(ctx3,{
       data:{labels:dates,datasets:[
         {type:'bar',label:'거래액',data:rows.map(r=>r.revenue),backgroundColor:c.bg,borderColor:c.border,borderWidth:0,borderRadius:3,yAxisID:'yL'},
         {type:'line',label:'ROAS',data:rows.map(r=>r.roas),borderColor:'#a78bfa',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#a78bfa',yAxisID:'yR',tension:0.3}
-      ]},
-      options:dualOpts(v=>'₩'+(v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v),v=>v+'%','거래액','ROAS')
+      ]},options:dualOpts(v=>'₩'+(v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v),v=>v+'%','거래액','ROAS')
     });
 
-    // Table
     const sub={spent:0,imp:0,clicks:0,revenue:0};
     rows.forEach(r=>{sub.spent+=r.spent;sub.imp+=r.imp;sub.clicks+=r.clicks;sub.revenue+=r.revenue;});
-    const sCtr=sub.imp>0?sub.clicks/sub.imp*100:0;
-    const sCpc=sub.clicks>0?sub.spent/sub.clicks:0;
-    const sRoas=sub.spent>0?sub.revenue/sub.spent*100:0;
+    const sCtr=sub.imp>0?sub.clicks/sub.imp*100:0, sCpc=sub.clicks>0?sub.spent/sub.clicks:0, sRoas=sub.spent>0?sub.revenue/sub.spent*100:0;
+
     document.getElementById(`dTbl_${idx}`).innerHTML=`
       <table>
-        <thead><tr><th>일자</th><th>요일</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th></tr></thead>
+        <thead><tr><th>일자</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th></tr></thead>
         <tbody>
-          ${rows.map(r=>`<tr><td>${r.date}</td><td>${r.day||'-'}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td></tr>`).join('')}
-          <tr class="tbl-total"><td>합계</td><td>-</td><td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td></tr>
+          ${rows.map(r=>`<tr><td>${r.date}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td></tr>`).join('')}
+          <tr class="tbl-total"><td>합계</td><td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td></tr>
         </tbody>
       </table>`;
   });
@@ -542,8 +543,7 @@ function renderDailySections(mediaList, dRows) {
 
 function dualOpts(fmtL,fmtR,labelL,labelR) {
   return {
-    responsive:true,maintainAspectRatio:false,
-    interaction:{mode:'index',intersect:false},
+    responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
     plugins:{legend:{position:'top',labels:{font:{size:10},padding:8,color:'#94a3b8',boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='yR'?` ${c.dataset.label}: ${fmtR(c.raw)}`:` ${c.dataset.label}: ${fmtL(c.raw)}`}}},
     scales:{
       yL:{type:'linear',position:'left',ticks:{callback:fmtL,font:{size:9}},grid:{color:'#263347'},title:{display:true,text:labelL,font:{size:9},color:'#64748b'}},

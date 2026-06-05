@@ -526,7 +526,9 @@ function render() {
   const isMediaTab = state.media !== 'all';
 
   // 매체 탭일 때 그룹 드롭다운 준비
-  const currentMediaName = mRows.length > 0 ? mRows[0].media : '';
+  const currentMediaName = isMediaTab
+    ? (parsed.mediaRows.find(r => state.media==='meta' ? isFb(r.media) : isKakao(r.media))?.media || '')
+    : '';
   const mediaAdsets = currentMediaName
     ? [...new Set(parsed.adsetRows.filter(r=>r.media===currentMediaName).map(r=>r.adset))].sort()
     : [];

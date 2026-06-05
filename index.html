@@ -6,6 +6,7 @@
   <title>광고 성과 대시보드</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <style>
     :root {
       --bg:      #0c1220;
@@ -546,11 +547,13 @@ function render() {
 // ── KPI ──────────────────────────────────────────────────────
 function renderKPI(t) {
   document.getElementById('kpiGrid').innerHTML=[
-    {label:'총 광고비',value:fmt.won(t.spent),   sub:'집행 비용 합계'},
-    {label:'총 거래액',value:fmt.won(t.revenue), sub:'ROAS: '+fmt.roas(t.roas)},
-    {label:'총 노출수',value:fmt.num(t.imp),     sub:'전체 노출 합계'},
-    {label:'총 클릭수',value:fmt.num(t.clicks),  sub:'CPC: '+fmt.won(t.cpc)},
-    {label:'평균 CTR', value:fmt.pct(t.ctr),     sub:'Clicks ÷ Impressions'},
+    {label:'총 광고비', value:fmt.won(t.spent),    sub:'집행 비용 합계'},
+    {label:'총 거래액', value:fmt.won(t.revenue),  sub:'매출 합계'},
+    {label:'ROAS',      value:fmt.roas(t.roas),    sub:'거래액 ÷ 광고비'},
+    {label:'총 노출수', value:fmt.num(t.imp),      sub:'전체 노출 합계'},
+    {label:'총 클릭수', value:fmt.num(t.clicks),   sub:'전체 클릭 합계'},
+    {label:'평균 CTR',  value:fmt.pct(t.ctr),      sub:'Clicks ÷ Impressions'},
+    {label:'평균 CPC',  value:fmt.won(t.cpc),      sub:'Cost Per Click'},
   ].map(c=>`<div class="kpi-card"><div class="kpi-label">${c.label}</div><div class="kpi-value">${c.value}</div><div class="kpi-sub">${c.sub}</div></div>`).join('');
 }
 
@@ -765,6 +768,10 @@ function renderDailySections(mediaList, dRows) {
       </div>
 
       <div class="card">
+        <div class="sub-sec-title"><span>소재별 효율 버블차트</span><span style="font-size:11px;color:var(--text3);font-weight:400">버블 크기 = 광고비 · 색상 = 카테고리</span></div>
+        <div id="bubble_${idx}" style="height:520px;width:100%"></div>
+      </div>
+      <div class="card">
         <div class="sub-sec-title"><span>소재별 성과</span></div>
         <div class="tbl-wrap" id="adsTbl_${idx}"></div>
       </div>
@@ -862,6 +869,8 @@ function buildMediaCharts(media, idx, dRows) {
   adsRows.forEach(r=>{aSub.spent+=r.spent;aSub.imp+=r.imp;aSub.clicks+=r.clicks;aSub.revenue+=r.revenue;aSub.orders+=r.orders||0;});
   const aCtr=aSub.imp>0?aSub.clicks/aSub.imp*100:0, aCpc=aSub.clicks>0?aSub.spent/aSub.clicks:0, aRoas=aSub.spent>0?aSub.revenue/aSub.spent*100:0;
 
+  renderBubbleChart(idx, adsRows, media);
+
   const tdS = `style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left"`;
   const kakaoMedia = isKakao(media);
   document.getElementById(`adsTbl_${idx}`).innerHTML=`
@@ -899,6 +908,115 @@ function buildMediaCharts(media, idx, dRows) {
         <tr class="tbl-total"><td>합계</td><td>-</td><td>-</td><td>${fmt.won(aSub.spent)}</td><td>${fmt.num(aSub.imp)}</td><td>${fmt.num(aSub.clicks)}</td><td>${fmt.pct(aCtr)}</td><td>${fmt.won(aCpc)}</td><td>${fmt.won(aSub.revenue)}</td><td>${fmt.roas(aRoas)}</td></tr>
       </tbody>
     </table>`;
+}
+
+// ── Bubble chart ─────────────────────────────────────────────
+function getCategory(ads) {
+  const n=(ads||'').toLowerCase();
+  if (n.includes('athleisure')) return '애슬레저';
+  if (n.includes('underwear'))  return '언더웨어';
+  if (n.includes('biz'))        return '비즈보드';
+  if (n.includes('sport'))      return '스포츠';
+  if (n.includes('outer'))      return '아우터';
+  // 소재명 두번째 파트로 분류
+  const parts = n.split('_').filter(Boolean);
+  return parts.length > 1 ? parts[1] : '기타';
+}
+
+const BUBBLE_COLORS = ['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#a78bfa','#f97316','#ec4899'];
+
+function renderBubbleChart(idx, adsRows, media) {
+  const el = document.getElementById(`bubble_${idx}`);
+  if (!el || !adsRows.length) return;
+
+  const rows = adsRows.filter(r => r.roas > 0 || r.revenue > 0);
+  if (!rows.length) { el.innerHTML = '<div style="color:#4e6176;text-align:center;padding:60px">데이터 없음</div>'; return; }
+
+  const cvr  = r => r.clicks > 0 ? (r.orders||0)/r.clicks*100 : 0;
+  const cats  = [...new Set(rows.map(r => getCategory(r.ads)))];
+
+  const avgRoas = rows.reduce((s,r)=>s+r.roas,0)/rows.length;
+  const avgRev  = rows.reduce((s,r)=>s+r.revenue,0)/rows.length;
+  const maxSpent = Math.max(...rows.map(r=>r.spent), 1);
+
+  const traces = cats.map((cat, ci) => {
+    const cr = rows.filter(r => getCategory(r.ads) === cat);
+    return {
+      type: 'scatter', mode: 'markers', name: cat,
+      x: cr.map(r => +r.roas.toFixed(1)),
+      y: cr.map(r => r.revenue),
+      text: cr.map(r => r.ads),
+      customdata: cr.map(r => [
+        r.ads,
+        fmt.won(r.spent), fmt.won(r.revenue),
+        fmt.num(r.orders||0), fmt.roas(r.roas),
+        fmt.pct(r.ctr), fmt.pct(cvr(r)), fmt.won(r.cpc)
+      ]),
+      hovertemplate:
+        '<b>%{customdata[0]}</b><br>' +
+        '광고비: %{customdata[1]}<br>' +
+        '매출: %{customdata[2]}<br>' +
+        '구매수: %{customdata[3]}<br>' +
+        'ROAS: %{customdata[4]}<br>' +
+        'CTR: %{customdata[5]}<br>' +
+        'CVR: %{customdata[6]}<br>' +
+        'CPC: %{customdata[7]}' +
+        '<extra></extra>',
+      marker: {
+        size: cr.map(r => Math.max(12, Math.sqrt(r.spent/maxSpent)*80)),
+        sizemode: 'diameter',
+        color: BUBBLE_COLORS[ci % BUBBLE_COLORS.length],
+        opacity: 0.75,
+        line: { width: 1.5, color: 'rgba(255,255,255,.3)' }
+      }
+    };
+  });
+
+  // 사분면 라벨
+  const quadLabels = [
+    { x:1, y:1, xref:'paper', yref:'paper', text:'🔺 증액 후보<br><span style="font-size:10px">고효율·고매출</span>', showarrow:false, font:{size:11,color:'#22c55e'}, xanchor:'right', yanchor:'top' },
+    { x:0, y:1, xref:'paper', yref:'paper', text:'🔧 소재 개선 후보<br><span style="font-size:10px">저효율·고매출</span>', showarrow:false, font:{size:11,color:'#f59e0b'}, xanchor:'left', yanchor:'top' },
+    { x:1, y:0, xref:'paper', yref:'paper', text:'🧪 테스트 확대 후보<br><span style="font-size:10px">고효율·저매출</span>', showarrow:false, font:{size:11,color:'#6366f1'}, xanchor:'right', yanchor:'bottom' },
+    { x:0, y:0, xref:'paper', yref:'paper', text:'🛑 중단 후보<br><span style="font-size:10px">저효율·저매출</span>', showarrow:false, font:{size:11,color:'#ef4444'}, xanchor:'left', yanchor:'bottom' },
+  ];
+
+  const layout = {
+    paper_bgcolor:'#1a2436', plot_bgcolor:'#1a2436',
+    font:{ family:'Segoe UI, Apple SD Gothic Neo, sans-serif', color:'#94a3b8', size:11 },
+    margin:{ t:30, r:20, b:60, l:80 },
+    xaxis:{
+      title:{ text:'ROAS (%)', font:{color:'#94a3b8',size:12} },
+      gridcolor:'#263347', zeroline:false, tickfont:{color:'#94a3b8'},
+      ticksuffix:'%'
+    },
+    yaxis:{
+      title:{ text:'거래액 (₩)', font:{color:'#94a3b8',size:12} },
+      gridcolor:'#263347', zeroline:false, tickfont:{color:'#94a3b8'},
+      tickformat:',.0f'
+    },
+    legend:{ bgcolor:'rgba(26,36,54,.8)', bordercolor:'#263347', borderwidth:1, font:{color:'#94a3b8'} },
+    shapes:[
+      // 평균 ROAS 기준선
+      { type:'line', x0:avgRoas, x1:avgRoas, y0:0, y1:1, yref:'paper',
+        line:{ color:'rgba(148,163,184,.4)', dash:'dot', width:1.5 } },
+      // 평균 매출 기준선
+      { type:'line', x0:0, x1:1, xref:'paper', y0:avgRev, y1:avgRev,
+        line:{ color:'rgba(148,163,184,.4)', dash:'dot', width:1.5 } },
+    ],
+    annotations:[
+      ...quadLabels,
+      // 기준선 라벨
+      { x:avgRoas, y:1, yref:'paper', text:`평균 ROAS ${Math.round(avgRoas)}%`, showarrow:false,
+        font:{size:10,color:'#64748b'}, xanchor:'left', yanchor:'top', xshift:4 },
+      { x:1, xref:'paper', y:avgRev, text:`평균 매출 ${fmt.won(avgRev)}`, showarrow:false,
+        font:{size:10,color:'#64748b'}, xanchor:'right', yanchor:'bottom', yshift:4 },
+    ],
+    hoverlabel:{ bgcolor:'#1e293b', bordercolor:'#6366f1', font:{color:'#f1f5f9',size:12} },
+  };
+
+  Plotly.newPlot(`bubble_${idx}`, traces, layout, {
+    responsive:true, displayModeBar:false
+  });
 }
 
 function dualOpts(fmtL,fmtR,labelL,labelR) {

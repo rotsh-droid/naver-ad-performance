@@ -265,7 +265,7 @@ function isKakao(m) { return (m||'').toLowerCase().includes('kakao'); }
 function addMetrics(r) { r.ctr=r.imp>0?r.clicks/r.imp*100:0; r.cpc=r.clicks>0?r.spent/r.clicks:0; r.roas=r.spent>0?r.revenue/r.spent*100:0; return r; }
 
 // ── State ────────────────────────────────────────────────────
-const state = { media:'all', dateFrom:null, dateTo:null, quick:null, event:null, adsetFilter:{} };
+const state = { media:'all', dateFrom:null, dateTo:null, quick:null, event:null, adsetFilter:{}, overallDailyFilter:'' };
 let parsed = null, charts = {}, _minD = '', _maxD = '', imageMap = {};
 
 // ── Parse ────────────────────────────────────────────────────
@@ -311,6 +311,14 @@ function parseRaw(data) {
     const m=dMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
   });
 
+  // Daily by (campaign × date)
+  const cpDMap = {};
+  rows.forEach(r => {
+    const k=r.campaign+'||'+r.date;
+    if (!cpDMap[k]) cpDMap[k]={campaign:r.campaign,date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    const m=cpDMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
+  });
+
   // Daily by (media × adset × date)
   const adMap = {};
   rows.forEach(r => {
@@ -329,11 +337,12 @@ function parseRaw(data) {
 
   return {
     events,
-    mediaRows:    agg(mMap),
-    adsetRows:    agg(aMap),
-    dailyRows:    agg(dMap).sort((a,b)=>a.date.localeCompare(b.date)),
-    adsetDailyRows: agg(adMap).sort((a,b)=>a.date.localeCompare(b.date)),
-    adsRows:      agg(adsMap),
+    mediaRows:        agg(mMap),
+    adsetRows:        agg(aMap),
+    dailyRows:        agg(dMap).sort((a,b)=>a.date.localeCompare(b.date)),
+    campaignDailyRows:agg(cpDMap).sort((a,b)=>a.date.localeCompare(b.date)),
+    adsetDailyRows:   agg(adMap).sort((a,b)=>a.date.localeCompare(b.date)),
+    adsRows:          agg(adsMap),
   };
 }
 
@@ -493,7 +502,8 @@ function render() {
   renderDonut('cRevenue', comp.labels, comp.revenue, comp.colors);
   renderCTRChart(comp);
   renderCompTable(comp, total);
-  renderDailySections(dailyMedias, dRows);
+  if (state.media === 'all') renderUnifiedDailySection();
+  else renderDailySections(dailyMedias, dRows);
 }
 
 // ── KPI ──────────────────────────────────────────────────────
@@ -568,6 +578,121 @@ function renderCompTable(comp, total) {
     <table>
       <thead><tr><th>${firstTh}</th><th>광고비</th><th>거래액</th><th>ROAS</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>주문수</th></tr></thead>
       <tbody>${tbody}<tr class="tbl-total"><td>합계</td><td>${fmt.won(total.spent)}</td><td>${fmt.won(total.revenue)}</td><td>${fmt.roas(total.roas)}</td><td>${fmt.num(total.imp)}</td><td>${fmt.num(total.clicks)}</td><td>${fmt.pct(ctr)}</td><td>${fmt.won(cpc)}</td><td>${fmt.num(total.orders)}</td></tr></tbody>
+    </table>`;
+}
+
+// ── Unified daily section (전체 탭) ───────────────────────────
+function renderUnifiedDailySection() {
+  const el = document.getElementById('dailySections');
+  const medias    = [...new Set(parsed.dailyRows.map(r=>r.media))];
+  const campaigns = [...new Set(parsed.campaignDailyRows.map(r=>r.campaign))];
+  const adsets    = [...new Set(parsed.adsetDailyRows.map(r=>r.adset))];
+  const sel       = state.overallDailyFilter;
+
+  const opts = `
+    <option value="" ${!sel?'selected':''}>전체</option>
+    <optgroup label="── 매체">
+      ${medias.map(m=>`<option value="media:${m}" ${sel==='media:'+m?'selected':''}>${m}</option>`).join('')}
+    </optgroup>
+    <optgroup label="── 캠페인">
+      ${campaigns.map(c=>`<option value="campaign:${c}" ${sel==='campaign:'+c?'selected':''}>${c}</option>`).join('')}
+    </optgroup>
+    <optgroup label="── 그룹">
+      ${adsets.map(a=>`<option value="adset:${a}" ${sel==='adset:'+a?'selected':''}>${a}</option>`).join('')}
+    </optgroup>
+  `;
+
+  el.innerHTML = `
+    <div class="media-section">
+      <div class="media-header">
+        <span style="font-size:13px;font-weight:700;color:var(--text)">일별 누적 성과</span>
+        <select class="custom-select" id="overallDailySelect" style="min-width:200px">${opts}</select>
+      </div>
+      <div class="three-col">
+        <div class="card"><div class="chart-label">📈 일별 노출수 / 클릭수</div><div class="chart-sm"><canvas id="cIC_u"></canvas></div></div>
+        <div class="card"><div class="chart-label">💵 일별 CPC 변화</div><div class="chart-sm"><canvas id="cCPC_u"></canvas></div></div>
+        <div class="card"><div class="chart-label">🛒 일별 거래액 / ROAS</div><div class="chart-sm"><canvas id="cRev_u"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="sub-sec-title"><span>일별 상세 데이터</span></div>
+        <div class="tbl-wrap" id="dTbl_u"></div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('overallDailySelect').addEventListener('change', e=>{
+    state.overallDailyFilter = e.target.value; render();
+  });
+
+  buildUnifiedDailyCharts();
+}
+
+function buildUnifiedDailyCharts() {
+  const sel = state.overallDailyFilter;
+  let rows;
+
+  if (!sel) {
+    // 전체 합산
+    const m={};
+    parsed.dailyRows.filter(filterDate).forEach(r=>{
+      if(!m[r.date]) m[r.date]={date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+      const d=m[r.date]; d.spent+=r.spent;d.imp+=r.imp;d.clicks+=r.clicks;d.revenue+=r.revenue;d.orders+=r.orders||0;
+    });
+    rows = Object.values(m).map(r=>addMetrics({...r})).sort((a,b)=>a.date.localeCompare(b.date));
+  } else if (sel.startsWith('media:')) {
+    const v=sel.slice(6);
+    rows = parsed.dailyRows.filter(r=>r.media===v&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
+  } else if (sel.startsWith('campaign:')) {
+    const v=sel.slice(9);
+    rows = parsed.campaignDailyRows.filter(r=>r.campaign===v&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
+  } else if (sel.startsWith('adset:')) {
+    const v=sel.slice(6);
+    rows = parsed.adsetDailyRows.filter(r=>r.adset===v&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
+  }
+
+  // Color based on selection
+  let c = {bg:'rgba(99,102,241,.8)',border:'#6366f1',light:'rgba(99,102,241,.15)'};
+  if (sel?.startsWith('media:')) c = colorOf(sel.slice(6));
+
+  const dates = rows.map(r=>r.date);
+
+  dc('cIC_u');
+  const ctx1=document.getElementById('cIC_u')?.getContext('2d');
+  if(ctx1) charts['cIC_u']=new Chart(ctx1,{
+    data:{labels:dates,datasets:[
+      {type:'bar',label:'노출수',data:rows.map(r=>r.imp),backgroundColor:c.light||c.bg,borderColor:c.border,borderWidth:1,borderRadius:3,yAxisID:'yL'},
+      {type:'line',label:'클릭수',data:rows.map(r=>r.clicks),borderColor:'#22c55e',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#22c55e',yAxisID:'yR',tension:0.3}
+    ]},options:dualOpts(v=>fmt.num(v),v=>fmt.num(v),'노출수','클릭수')
+  });
+
+  dc('cCPC_u');
+  const ctx2=document.getElementById('cCPC_u')?.getContext('2d');
+  if(ctx2) charts['cCPC_u']=new Chart(ctx2,{
+    type:'line',
+    data:{labels:dates,datasets:[{label:'CPC',data:rows.map(r=>r.cpc),borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.1)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#f97316',tension:0.3,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' CPC: '+fmt.won(c.raw)}}},scales:{y:{ticks:{callback:v=>'₩'+(v>=1000?(v/1000).toFixed(0)+'K':v),font:{size:10}},grid:{color:'#263347'}},x:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:10},maxRotation:45,maxTicksLimit:8}}}}
+  });
+
+  dc('cRev_u');
+  const ctx3=document.getElementById('cRev_u')?.getContext('2d');
+  if(ctx3) charts['cRev_u']=new Chart(ctx3,{
+    data:{labels:dates,datasets:[
+      {type:'bar',label:'거래액',data:rows.map(r=>r.revenue),backgroundColor:c.bg,borderColor:c.border,borderWidth:0,borderRadius:3,yAxisID:'yL'},
+      {type:'line',label:'ROAS',data:rows.map(r=>r.roas),borderColor:'#a78bfa',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#a78bfa',yAxisID:'yR',tension:0.3}
+    ]},options:dualOpts(v=>'₩'+(v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v),v=>Math.round(v)+'%','거래액','ROAS')
+  });
+
+  // 일별 테이블
+  const sub={spent:0,imp:0,clicks:0,revenue:0,orders:0};
+  rows.forEach(r=>{sub.spent+=r.spent;sub.imp+=r.imp;sub.clicks+=r.clicks;sub.revenue+=r.revenue;sub.orders+=r.orders||0;});
+  const sCtr=sub.imp>0?sub.clicks/sub.imp*100:0,sCpc=sub.clicks>0?sub.spent/sub.clicks:0,sRoas=sub.spent>0?sub.revenue/sub.spent*100:0;
+  document.getElementById('dTbl_u').innerHTML=`
+    <table>
+      <thead><tr><th>일자</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th><th>주문수</th></tr></thead>
+      <tbody>
+        ${rows.map(r=>`<tr><td>${r.date}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.orders||0)}</td></tr>`).join('')}
+        <tr class="tbl-total"><td>합계</td><td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td><td>${fmt.num(sub.orders)}</td></tr>
+      </tbody>
     </table>`;
 }
 

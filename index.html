@@ -94,6 +94,7 @@
 
     /* Media section */
     .media-section { display: flex; flex-direction: column; gap: 14px; }
+    .media-section + .media-section { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
     .media-header { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .media-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:20px; font-size:13px; font-weight:700; }
     .badge-fb    { background:rgba(79,131,235,.15); color:#4f83eb; border:1px solid rgba(79,131,235,.3); }
@@ -633,7 +634,10 @@ function buildMediaCharts(media, idx, dRows) {
   // Creative (ads) table
   let adsRows = parsed.adsRows.filter(r => r.media===media);
   if (selAdset) adsRows = adsRows.filter(r => r.adset===selAdset);
-  adsRows = adsRows.sort((a,b) => b.spent-a.spent);
+  adsRows = adsRows.sort((a,b) => {
+    if (a.adset !== b.adset) return a.adset.localeCompare(b.adset);
+    return b.spent - a.spent;
+  });
 
   const aSub={spent:0,imp:0,clicks:0,revenue:0,orders:0};
   adsRows.forEach(r=>{aSub.spent+=r.spent;aSub.imp+=r.imp;aSub.clicks+=r.clicks;aSub.revenue+=r.revenue;aSub.orders+=r.orders||0;});

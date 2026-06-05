@@ -169,6 +169,14 @@
     .ai-bullets li::before { content:'*'; position:absolute; left:0; color:#22c55e; font-weight:700; }
     .ai-num { color:#f1f5f9; font-weight:600; }
 
+    /* Creative performance indicators */
+    .metric-bad  { color: #f87171 !important; font-weight: 600; }
+    .badge-stop  { background: rgba(248,113,113,.15); color: #f87171; border: 1px solid rgba(248,113,113,.3); border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 700; white-space: nowrap; margin-left: 4px; }
+    .badge-warn  { background: rgba(251,191,36,.12); color: #fbbf24; border: 1px solid rgba(251,191,36,.3); border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 700; white-space: nowrap; margin-left: 4px; }
+    tr.row-bad td  { background: rgba(248,113,113,.05) !important; }
+    tr.row-warn td { background: rgba(251,191,36,.04) !important; }
+    .tbl-legend { font-size: 11px; color: var(--text3); margin-top: 10px; display: flex; gap: 14px; flex-wrap: wrap; }
+
     /* State */
     .state-box { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:300px; gap:12px; color:var(--text3); }
     .spinner { width:34px; height:34px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
@@ -924,6 +932,17 @@ function buildMediaCharts(media, idx, dRows) {
 
   renderBubbleChart(idx, adsRows, media);
 
+  // 그룹별 평균 계산
+  const groupAvgs = {};
+  [...new Set(adsRows.map(r=>r.adset))].forEach(adset => {
+    const cr = adsRows.filter(r=>r.adset===adset);
+    groupAvgs[adset] = {
+      ctr:  cr.reduce((s,r)=>s+r.ctr,0)/cr.length,
+      cpc:  cr.reduce((s,r)=>s+r.cpc,0)/cr.length,
+      roas: cr.reduce((s,r)=>s+r.roas,0)/cr.length,
+    };
+  });
+
   const tdS = `style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left"`;
   const kakaoMedia = isKakao(media);
   document.getElementById(`adsTbl_${idx}`).innerHTML=`
@@ -938,7 +957,22 @@ function buildMediaCharts(media, idx, dRows) {
         ${adsRows.map((r,i)=>{
           const img = imageMap[r.ads];
           const isGroupEnd = i===adsRows.length-1 || adsRows[i+1].adset!==r.adset;
-          const rowCls = isGroupEnd ? ' class="group-end"' : '';
+          const avg = groupAvgs[r.adset] || {};
+
+          // 저조 판단: CTR 낮음 / CPC 높음 / ROAS 낮음
+          const lowCtr  = avg.ctr  > 0 && r.ctr  < avg.ctr;
+          const highCpc = avg.cpc  > 0 && r.cpc  > avg.cpc;
+          const lowRoas = avg.roas > 0 && r.roas < avg.roas;
+          const badCount = [lowCtr, highCpc, lowRoas].filter(Boolean).length;
+
+          const rowCls = isGroupEnd
+            ? ` class="group-end${badCount===3?' row-bad':badCount===2?' row-warn':''}"`
+            : badCount===3 ? ` class="row-bad"` : badCount===2 ? ` class="row-warn"` : '';
+
+          const badge = badCount===3
+            ? `<span class="badge-stop">교체 검토</span>`
+            : badCount===2 ? `<span class="badge-warn">주의</span>` : '';
+
           const imgCls = `creative-img${kakaoMedia?' kakao-bg':''}`;
           const imgTag = img
             ? `<img class="${imgCls}" src="${img.thumb}" data-large="${img.large}" data-kakao="${kakaoMedia?'1':'0'}" onmouseenter="showImgHover(this,event)" onmousemove="moveImgHover(event)" onmouseleave="hideImgHover()" onclick="openImgModal('${img.thumb}','${img.large}','${(r.ads||'').replace(/'/g,"\\'")}');event.stopPropagation()" onerror="this.style.display='none'" />`
@@ -946,21 +980,32 @@ function buildMediaCharts(media, idx, dRows) {
           const nameSpan = img
             ? `<span class="creative-name-link" onclick="openImgModal('${img.thumb}','${img.large}','${(r.ads||'').replace(/'/g,"\\'")}')">` + (r.ads||'-') + `</span>`
             : `<span>${r.ads||'-'}</span>`;
+
           return `<tr${rowCls}>
             <td ${tdS}>${r.campaign||'-'}</td>
             <td ${tdS}>${r.adset||'-'}</td>
             <td style="text-align:left;white-space:nowrap">
               <div style="display:flex;align-items:center;gap:8px">
-                ${imgTag}
-                ${nameSpan}
+                ${imgTag}${nameSpan}${badge}
               </div>
             </td>
-            <td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td>
+            <td>${fmt.won(r.spent)}</td>
+            <td>${fmt.num(r.imp)}</td>
+            <td>${fmt.num(r.clicks)}</td>
+            <td><span${lowCtr?' class="metric-bad"':''}>${fmt.pct(r.ctr)}</span></td>
+            <td><span${highCpc?' class="metric-bad"':''}>${fmt.won(r.cpc)}</span></td>
+            <td>${fmt.won(r.revenue)}</td>
+            <td><span${lowRoas?' class="metric-bad"':''}>${fmt.roas(r.roas)}</span></td>
           </tr>`;
         }).join('')}
         <tr class="tbl-total"><td>합계</td><td>-</td><td>-</td><td>${fmt.won(aSub.spent)}</td><td>${fmt.num(aSub.imp)}</td><td>${fmt.num(aSub.clicks)}</td><td>${fmt.pct(aCtr)}</td><td>${fmt.won(aCpc)}</td><td>${fmt.won(aSub.revenue)}</td><td>${fmt.roas(aRoas)}</td></tr>
       </tbody>
-    </table>`;
+    </table>
+    <div class="tbl-legend">
+      <span><span class="badge-stop">교체 검토</span> CTR·CPC·ROAS 3개 지표 모두 그룹 평균 이하</span>
+      <span><span class="badge-warn">주의</span> 3개 중 2개 지표 그룹 평균 이하</span>
+      <span style="color:#f87171">■</span> 개별 지표 그룹 평균 이하
+    </div>`;
 }
 
 // ── AI Summary ───────────────────────────────────────────────

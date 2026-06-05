@@ -113,20 +113,38 @@
     .sub-sec-title span { display: flex; align-items: center; gap: 6px; }
     .sub-sec-title span::before { content:''; display:inline-block; width:3px; height:13px; background:var(--text3); border-radius:2px; }
 
-    /* Creative image hover zoom */
+    /* Creative image */
     .creative-img {
       width: 36px; height: 36px; object-fit: cover;
       border-radius: 6px; border: 1px solid var(--border);
       cursor: zoom-in; vertical-align: middle; flex-shrink: 0;
-      transition: transform .25s ease, box-shadow .25s ease;
+      transition: transform .2s ease, box-shadow .2s ease;
       position: relative; z-index: 1;
     }
-    .creative-img:hover {
-      transform: scale(5);
-      z-index: 999;
-      box-shadow: 0 8px 40px rgba(0,0,0,.7);
-    }
+    .creative-img.kakao-bg { object-fit: contain; background: #fff; padding: 2px; }
+    .creative-img:hover { transform: scale(10); z-index: 999; box-shadow: 0 8px 40px rgba(0,0,0,.8); }
     td:has(.creative-img) { overflow: visible !important; }
+    .creative-name-link { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+    .creative-name-link:hover { color: #a5b4fc; }
+
+    /* Group separator row */
+    tr.group-end td { border-bottom: 2px solid rgba(255,255,255,.18) !important; }
+
+    /* Image modal */
+    #imgModal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.85); z-index: 9999;
+      justify-content: center; align-items: center; cursor: zoom-out;
+    }
+    #imgModal.open { display: flex; }
+    #imgModalInner {
+      background: #fff; border-radius: 12px; padding: 16px;
+      max-width: 90vw; max-height: 90vh;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      box-shadow: 0 24px 80px rgba(0,0,0,.6);
+    }
+    #imgModalImg { max-width: 80vw; max-height: 75vh; object-fit: contain; border-radius: 6px; display: block; }
+    #imgModalName { font-size: 13px; color: #334155; font-weight: 600; text-align: center; }
 
     /* State */
     .state-box { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:300px; gap:12px; color:var(--text3); }
@@ -178,15 +196,34 @@
   </div>
 </div>
 
+<!-- Image Modal -->
+<div id="imgModal" onclick="closeImgModal()">
+  <div id="imgModalInner" onclick="event.stopPropagation()">
+    <img id="imgModalImg" src="" alt="" />
+    <div id="imgModalName"></div>
+    <button onclick="closeImgModal()" style="padding:6px 18px;border-radius:8px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:12px;cursor:pointer;color:#475569;font-weight:600">닫기</button>
+  </div>
+</div>
+
 <script>
 const CSV_URL   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoZ7VJvp5y0Bg8pzGzArUblfuGMpi8CsJxVEjDFxvdj1qeKICl4dc88ZauWHr_nFAdGFxQEO1kOA5p/pub?gid=0&single=true&output=csv';
 const IMAGE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoZ7VJvp5y0Bg8pzGzArUblfuGMpi8CsJxVEjDFxvdj1qeKICl4dc88ZauWHr_nFAdGFxQEO1kOA5p/pub?gid=1516577223&single=true&output=csv';
 
 // 구글 드라이브 링크 → 썸네일 URL 변환
-function toDriveImg(url) {
+function toDriveImg(url, sz='w120') {
   if (!url) return '';
   const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-  return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w120` : url;
+  return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=${sz}` : url;
+}
+
+function openImgModal(thumbUrl, largUrl, name) {
+  document.getElementById('imgModalImg').src  = largUrl || thumbUrl;
+  document.getElementById('imgModalName').textContent = name || '';
+  document.getElementById('imgModal').classList.add('open');
+}
+function closeImgModal() {
+  document.getElementById('imgModal').classList.remove('open');
+  document.getElementById('imgModalImg').src = '';
 }
 
 Chart.defaults.color = '#94a3b8';
@@ -309,7 +346,7 @@ function loadData() {
       data.forEach(r => {
         const ads = (r['ads (소재)']||'').trim();
         const url = (r['이미지 URL']||'').trim();
-        if (ads && url) imageMap[ads] = toDriveImg(url);
+        if (ads && url) imageMap[ads] = { thumb: toDriveImg(url,'w120'), large: toDriveImg(url,'w800') };
       });
       Papa.parse(CSV_URL, {
         download:true, header:true, skipEmptyLines:true,
@@ -662,6 +699,7 @@ function buildMediaCharts(media, idx, dRows) {
   const aCtr=aSub.imp>0?aSub.clicks/aSub.imp*100:0, aCpc=aSub.clicks>0?aSub.spent/aSub.clicks:0, aRoas=aSub.spent>0?aSub.revenue/aSub.spent*100:0;
 
   const tdS = `style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left"`;
+  const kakaoMedia = isKakao(media);
   document.getElementById(`adsTbl_${idx}`).innerHTML=`
     <table style="overflow:visible">
       <thead><tr>
@@ -671,16 +709,24 @@ function buildMediaCharts(media, idx, dRows) {
         <th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th>
       </tr></thead>
       <tbody>
-        ${adsRows.map(r=>{
-          const imgUrl = imageMap[r.ads]||'';
-          const imgTag = imgUrl ? `<img class="creative-img" src="${imgUrl}" onerror="this.style.display='none'" />` : '';
-          return `<tr>
+        ${adsRows.map((r,i)=>{
+          const img = imageMap[r.ads];
+          const isGroupEnd = i===adsRows.length-1 || adsRows[i+1].adset!==r.adset;
+          const rowCls = isGroupEnd ? ' class="group-end"' : '';
+          const imgCls = `creative-img${kakaoMedia?' kakao-bg':''}`;
+          const imgTag = img
+            ? `<img class="${imgCls}" src="${img.thumb}" onclick="openImgModal('${img.thumb}','${img.large}','${(r.ads||'').replace(/'/g,"\\'")}');event.stopPropagation()" onerror="this.style.display='none'" />`
+            : '';
+          const nameSpan = img
+            ? `<span class="creative-name-link" onclick="openImgModal('${img.thumb}','${img.large}','${(r.ads||'').replace(/'/g,"\\'")}')">` + (r.ads||'-') + `</span>`
+            : `<span>${r.ads||'-'}</span>`;
+          return `<tr${rowCls}>
             <td ${tdS}>${r.campaign||'-'}</td>
             <td ${tdS}>${r.adset||'-'}</td>
             <td style="text-align:left;white-space:nowrap">
               <div style="display:flex;align-items:center;gap:8px">
                 ${imgTag}
-                <span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ads||'-'}</span>
+                ${nameSpan}
               </div>
             </td>
             <td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td>

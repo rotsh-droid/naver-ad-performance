@@ -16,12 +16,9 @@
       --text2:   #94a3b8;
       --text3:   #4e6176;
       --accent:  #6366f1;
-      --fb:      #4f83eb;
-      --kakao:   #f59f00;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-
     .layout { display: flex; min-height: 100vh; }
 
     /* Sidebar */
@@ -97,10 +94,23 @@
 
     /* Media section */
     .media-section { display: flex; flex-direction: column; gap: 14px; }
-    .media-header { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    .media-header { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .media-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:20px; font-size:13px; font-weight:700; }
     .badge-fb    { background:rgba(79,131,235,.15); color:#4f83eb; border:1px solid rgba(79,131,235,.3); }
     .badge-kakao { background:rgba(245,159,0,.15);  color:#f59f00; border:1px solid rgba(245,159,0,.3); }
+
+    /* Dropdown */
+    .custom-select {
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 6px 12px; font-size: 12px; color: var(--text); outline: none;
+      cursor: pointer; color-scheme: dark; min-width: 160px; max-width: 280px;
+    }
+    .custom-select:focus { border-color: var(--accent); }
+
+    /* Sub section */
+    .sub-sec-title { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    .sub-sec-title span { display: flex; align-items: center; gap: 6px; }
+    .sub-sec-title span::before { content:''; display:inline-block; width:3px; height:13px; background:var(--text3); border-radius:2px; }
 
     /* State */
     .state-box { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:300px; gap:12px; color:var(--text3); }
@@ -140,6 +150,7 @@
       <div class="topbar-sep"></div>
       <span class="topbar-label">최근</span>
       <div class="quick-btns">
+        <button class="quick-btn" data-quick="all">전체</button>
         <button class="quick-btn" data-quick="yesterday">어제</button>
         <button class="quick-btn" data-quick="7days">7일</button>
         <button class="quick-btn" data-quick="14days">14일</button>
@@ -154,7 +165,7 @@
 <script>
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoZ7VJvp5y0Bg8pzGzArUblfuGMpi8CsJxVEjDFxvdj1qeKICl4dc88ZauWHr_nFAdGFxQEO1kOA5p/pub?gid=0&single=true&output=csv';
 
-Chart.defaults.color       = '#94a3b8';
+Chart.defaults.color = '#94a3b8';
 Chart.defaults.borderColor = '#263347';
 
 const COLORS = {
@@ -182,34 +193,23 @@ function parseNum(s) {
   if (!s) return 0;
   return parseFloat(String(s).replace(/[₩,%\s]/g,'').replace(/,/g,'')) || 0;
 }
-
-function colorOf(media) {
-  const k=(media||'').toLowerCase();
+function colorOf(m) {
+  const k=(m||'').toLowerCase();
   if (k.includes('facebook')||k.includes('meta')||k.includes('fb')) return COLORS.fb;
   if (k.includes('kakao')) return COLORS.kakao;
   return {bg:'rgba(148,163,184,.8)',border:'#94a3b8',light:'rgba(148,163,184,.15)'};
 }
 function isFb(m)    { const k=(m||'').toLowerCase(); return k.includes('facebook')||k.includes('meta')||k.includes('fb'); }
 function isKakao(m) { return (m||'').toLowerCase().includes('kakao'); }
+function addMetrics(r) { r.ctr=r.imp>0?r.clicks/r.imp*100:0; r.cpc=r.clicks>0?r.spent/r.clicks:0; r.roas=r.spent>0?r.revenue/r.spent*100:0; return r; }
 
-function addMetrics(r) {
-  r.ctr  = r.imp    > 0 ? r.clicks / r.imp    * 100 : 0;
-  r.cpc  = r.clicks > 0 ? r.spent  / r.clicks      : 0;
-  r.roas = r.spent  > 0 ? r.revenue/ r.spent  * 100 : 0;
-  return r;
-}
+// ── State ────────────────────────────────────────────────────
+const state = { media:'all', dateFrom:null, dateTo:null, quick:null, event:null, adsetFilter:{} };
+let parsed = null, charts = {}, _minD = '', _maxD = '';
 
-// ── State ─────────────────────────────────────────────────────
-const state = { media:'all', dateFrom:null, dateTo:null, quick:null, event:null };
-let parsed = null;
-let charts = {};
-
-// ── Parse raw CSV ─────────────────────────────────────────────
+// ── Parse ────────────────────────────────────────────────────
 function parseRaw(data) {
   const rows = data.map(r => ({
-    year:     +r['year'],
-    month:    +r['month'],
-    weeknum:  +r['weeknum'],
     date:     (r['date']||'').trim(),
     media:    (r['media_source']||'').trim(),
     campaign: (r['campaign (캠페인명)']||'').trim(),
@@ -221,79 +221,91 @@ function parseRaw(data) {
     revenue:  parseNum(r['거래액']),
     orders:   parseNum(r['쇼핑 주문수(총)']),
     event:    (r['기획전명']||'').trim(),
-  })).filter(r => r.date && r.date.match(/\d{4}-\d{2}-\d{2}/));
+  })).filter(r => r.date && /\d{4}-\d{2}-\d{2}/.test(r.date));
 
   const events = [...new Set(rows.map(r=>r.event).filter(Boolean))].sort();
 
-  function agg(groups) {
-    return Object.values(groups).map(r => addMetrics({...r}));
-  }
+  function agg(map) { return Object.values(map).map(r => addMetrics({...r})); }
 
-  // Media-level aggregation
+  // Media-level
   const mMap = {};
   rows.forEach(r => {
-    if (!mMap[r.media]) mMap[r.media] = {media:r.media, spent:0, imp:0, clicks:0, revenue:0, orders:0, budget:0};
+    if (!mMap[r.media]) mMap[r.media]={media:r.media,spent:0,imp:0,clicks:0,revenue:0,orders:0,budget:0};
     const m=mMap[r.media]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
   });
-  const mediaRows = agg(mMap);
 
-  // Adset (그룹)-level aggregation
-  const cMap = {};
+  // Adset-level
+  const aMap = {};
   rows.forEach(r => {
-    const key = r.media+'||'+r.adset;
-    if (!cMap[key]) cMap[key] = {media:r.media, campaign:r.campaign, adset:r.adset, spent:0, imp:0, clicks:0, revenue:0, orders:0};
-    const m=cMap[key]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
+    const k=r.media+'||'+r.adset;
+    if (!aMap[k]) aMap[k]={media:r.media,adset:r.adset,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    const m=aMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
   });
-  const campaignRows = agg(cMap);
 
-  // Daily-level aggregation (media × date)
+  // Daily by (media × date)
   const dMap = {};
   rows.forEach(r => {
-    const key = r.media+'||'+r.date;
-    if (!dMap[key]) dMap[key] = {media:r.media, date:r.date, spent:0, imp:0, clicks:0, revenue:0, orders:0};
-    const m=dMap[key]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
+    const k=r.media+'||'+r.date;
+    if (!dMap[k]) dMap[k]={media:r.media,date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    const m=dMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
   });
-  const dailyRows = agg(dMap).sort((a,b)=>a.date.localeCompare(b.date));
 
-  return { events, mediaRows, campaignRows, dailyRows };
+  // Daily by (media × adset × date)
+  const adMap = {};
+  rows.forEach(r => {
+    const k=r.media+'||'+r.adset+'||'+r.date;
+    if (!adMap[k]) adMap[k]={media:r.media,adset:r.adset,date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    const m=adMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
+  });
+
+  // Ads (creative) by (media × adset × ads)
+  const adsMap = {};
+  rows.forEach(r => {
+    const k=r.media+'||'+r.adset+'||'+r.ads;
+    if (!adsMap[k]) adsMap[k]={media:r.media,adset:r.adset,ads:r.ads,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    const m=adsMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
+  });
+
+  return {
+    events,
+    mediaRows:    agg(mMap),
+    adsetRows:    agg(aMap),
+    dailyRows:    agg(dMap).sort((a,b)=>a.date.localeCompare(b.date)),
+    adsetDailyRows: agg(adMap).sort((a,b)=>a.date.localeCompare(b.date)),
+    adsRows:      agg(adsMap),
+  };
 }
 
-// ── Load ──────────────────────────────────────────────────────
+// ── Load ─────────────────────────────────────────────────────
 function loadData() {
   Papa.parse(CSV_URL, {
     download:true, header:true, skipEmptyLines:true,
     complete:({data}) => { parsed=parseRaw(data); initUI(); render(); },
-    error:err => {
-      document.getElementById('content').innerHTML=`<div class="state-box">⚠️ 데이터를 불러올 수 없습니다.<br><small>${err.message}</small></div>`;
-    }
+    error:err => { document.getElementById('content').innerHTML=`<div class="state-box">⚠️ 오류: ${err.message}</div>`; }
   });
 }
 
-// ── Init UI ───────────────────────────────────────────────────
+// ── Init UI ──────────────────────────────────────────────────
 function initUI() {
-  // Sidebar events
   const nav = document.getElementById('sidebarNav');
-  state.event = parsed.events[0] || null;
-  nav.innerHTML = parsed.events.map((e,i) =>
+  state.event = parsed.events[0]||null;
+  nav.innerHTML = parsed.events.map((e,i)=>
     `<div class="nav-item ${i===0?'active':''}" data-event="${e}"><span class="nav-dot"></span><span class="nav-text" title="${e}">${e}</span></div>`
   ).join('');
-  nav.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-      state.event = item.dataset.event;
+  nav.querySelectorAll('.nav-item').forEach(item=>{
+    item.addEventListener('click',()=>{
+      state.event=item.dataset.event;
       nav.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-      item.classList.add('active');
-      render();
+      item.classList.add('active'); render();
     });
   });
 
-  // Date range
-  const allDates = parsed.dailyRows.map(r=>r.date).sort();
-  const minD = allDates[0]||'', maxD = allDates[allDates.length-1]||'';
-  state.dateFrom=minD; state.dateTo=maxD;
-  document.getElementById('dateFrom').value=minD;
-  document.getElementById('dateTo').value=maxD;
+  const allDates=parsed.dailyRows.map(r=>r.date).sort();
+  _minD=allDates[0]||''; _maxD=allDates[allDates.length-1]||'';
+  state.dateFrom=_minD; state.dateTo=_maxD;
+  document.getElementById('dateFrom').value=_minD;
+  document.getElementById('dateTo').value=_maxD;
 
-  // Media tabs
   document.querySelectorAll('.media-tab').forEach(btn=>{
     btn.addEventListener('click',()=>{
       state.media=btn.dataset.media; state.quick=null;
@@ -302,94 +314,97 @@ function initUI() {
     });
   });
 
-  // Date inputs
   document.getElementById('dateFrom').addEventListener('change',e=>{state.dateFrom=e.target.value;state.quick=null;clearQuick();render();});
   document.getElementById('dateTo').addEventListener('change',e=>{state.dateTo=e.target.value;state.quick=null;clearQuick();render();});
 
-  // Quick buttons
   document.querySelectorAll('.quick-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const q=btn.dataset.quick;
-      if (state.quick===q) {
-        state.quick=null; clearQuick();
-        state.dateFrom=minD; state.dateTo=maxD;
-        document.getElementById('dateFrom').value=minD; document.getElementById('dateTo').value=maxD;
-      } else {
+      if (state.quick===q && q!=='all') { state.quick=null; clearQuick(); setDates(_minD,_maxD); }
+      else {
         state.quick=q; clearQuick(); btn.classList.add('active');
-        const d=new Date(maxD);
-        if (q==='yesterday')  { d.setDate(d.getDate()-1); const s=d.toISOString().slice(0,10); state.dateFrom=s; state.dateTo=s; document.getElementById('dateFrom').value=s; document.getElementById('dateTo').value=s; }
-        else if (q==='7days') { d.setDate(d.getDate()-6); const s=d.toISOString().slice(0,10); state.dateFrom=s; state.dateTo=maxD; document.getElementById('dateFrom').value=s; document.getElementById('dateTo').value=maxD; }
-        else if (q==='14days'){ d.setDate(d.getDate()-13);const s=d.toISOString().slice(0,10); state.dateFrom=s; state.dateTo=maxD; document.getElementById('dateFrom').value=s; document.getElementById('dateTo').value=maxD; }
+        if (q==='all') { setDates(_minD,_maxD); }
+        else {
+          const d=new Date(_maxD);
+          if (q==='yesterday') { d.setDate(d.getDate()-1); const s=d.toISOString().slice(0,10); setDates(s,s); }
+          else if (q==='7days')  { d.setDate(d.getDate()-6);  setDates(d.toISOString().slice(0,10),_maxD); }
+          else if (q==='14days') { d.setDate(d.getDate()-13); setDates(d.toISOString().slice(0,10),_maxD); }
+        }
       }
       render();
     });
   });
 }
-function clearQuick() { document.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active')); }
 
-// ── Filtered helpers ──────────────────────────────────────────
-function filterRow(r) {
+function clearQuick() { document.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active')); }
+function setDates(from,to) {
+  state.dateFrom=from; state.dateTo=to;
+  document.getElementById('dateFrom').value=from;
+  document.getElementById('dateTo').value=to;
+}
+
+// ── Filtered helpers ─────────────────────────────────────────
+function filterMedia(r) {
   if (state.media==='meta'  && !isFb(r.media))    return false;
   if (state.media==='kakao' && !isKakao(r.media)) return false;
-  if (state.event && r.event !== undefined && r.event !== state.event) return false;
+  return true;
+}
+function filterDate(r) {
+  if (state.dateFrom && r.date < state.dateFrom) return false;
+  if (state.dateTo   && r.date > state.dateTo)   return false;
   return true;
 }
 
-function filteredDailyRaw() {
-  // Re-aggregate daily from raw considering all filters including date
-  return parsed.dailyRows.filter(r => {
-    if (state.media==='meta'  && !isFb(r.media))    return false;
-    if (state.media==='kakao' && !isKakao(r.media)) return false;
-    if (state.dateFrom && r.date < state.dateFrom)  return false;
-    if (state.dateTo   && r.date > state.dateTo)    return false;
-    return true;
-  });
-}
-
-// ── Comparison data (전체: media / 메타|카카오: campaign) ──────
+// ── Comp data ─────────────────────────────────────────────────
 function getCompData() {
-  if (state.media === 'all') {
-    const rows = parsed.mediaRows;
-    return { type:'media', rows, labels:rows.map(r=>r.media), spent:rows.map(r=>r.spent), revenue:rows.map(r=>r.revenue), clicks:rows.map(r=>r.clicks), ctr:rows.map(r=>r.ctr), imp:rows.map(r=>r.imp), cpc:rows.map(r=>r.cpc), roas:rows.map(r=>r.roas), colors:rows.map(r=>colorOf(r.media)) };
+  if (state.media==='all') {
+    const rows=parsed.mediaRows;
+    return { type:'media', rows, labels:rows.map(r=>r.media), spent:rows.map(r=>r.spent), revenue:rows.map(r=>r.revenue), clicks:rows.map(r=>r.clicks), ctr:rows.map(r=>r.ctr), imp:rows.map(r=>r.imp), cpc:rows.map(r=>r.cpc), roas:rows.map(r=>r.roas), orders:rows.map(r=>r.orders), colors:rows.map(r=>colorOf(r.media)) };
   }
-  const rows = parsed.campaignRows.filter(r => state.media==='meta' ? isFb(r.media) : isKakao(r.media));
-  return { type:'campaign', rows, labels:rows.map(r=>r.adset), spent:rows.map(r=>r.spent), revenue:rows.map(r=>r.revenue), clicks:rows.map(r=>r.clicks), ctr:rows.map(r=>r.ctr), imp:rows.map(r=>r.imp), cpc:rows.map(r=>r.cpc), roas:rows.map(r=>r.roas), colors:rows.map((_,i)=>pc(i)) };
+  const rows=parsed.adsetRows.filter(filterMedia);
+  return { type:'adset', rows, labels:rows.map(r=>r.adset), spent:rows.map(r=>r.spent), revenue:rows.map(r=>r.revenue), clicks:rows.map(r=>r.clicks), ctr:rows.map(r=>r.ctr), imp:rows.map(r=>r.imp), cpc:rows.map(r=>r.cpc), roas:rows.map(r=>r.roas), orders:rows.map(r=>r.orders), colors:rows.map((_,i)=>pc(i)) };
 }
 
 // ── Render ────────────────────────────────────────────────────
 function render() {
   if (!parsed) return;
-  const comp = getCompData();
-  const dRows = filteredDailyRaw();
+  const comp  = getCompData();
+  const dRows = parsed.dailyRows.filter(r=>filterMedia(r)&&filterDate(r));
   const dailyMedias = [...new Set(dRows.map(r=>r.media))];
 
-  // Total KPI (filtered by date + media + event from daily rows)
-  const total = {spent:0, revenue:0, imp:0, clicks:0, orders:0};
-  dRows.forEach(r => { total.spent+=r.spent; total.revenue+=r.revenue; total.imp+=r.imp; total.clicks+=r.clicks; total.orders+=r.orders||0; });
+  const total={spent:0,revenue:0,imp:0,clicks:0,orders:0};
+  dRows.forEach(r=>{total.spent+=r.spent;total.revenue+=r.revenue;total.imp+=r.imp;total.clicks+=r.clicks;total.orders+=r.orders||0;});
   total.ctr  = total.imp>0    ? total.clicks/total.imp*100    : 0;
   total.roas = total.spent>0  ? total.revenue/total.spent*100 : 0;
   total.cpc  = total.clicks>0 ? total.spent/total.clicks      : 0;
 
   const dateStr = state.dateFrom===state.dateTo ? state.dateFrom : `${state.dateFrom} ~ ${state.dateTo}`;
+  const isMediaTab = state.media !== 'all';
 
   document.getElementById('content').innerHTML = `
     <div class="info-strip">
       <div class="info-chip">📌 기획전: <strong>${state.event||'-'}</strong></div>
       <div class="info-chip">📅 기간: <strong>${dateStr||'-'}</strong></div>
     </div>
+
     <div>
       <div class="sec-title">전체 요약</div>
       <div class="kpi-grid" id="kpiGrid"></div>
     </div>
+
     <div>
-      <div class="sec-title">매체별 누적 성과 비중</div>
+      <div class="sec-title">${isMediaTab ? '그룹별 누적 성과 비중' : '매체별 누적 성과 비중'}</div>
       <div class="three-col">
         <div class="card"><div class="chart-label">💰 비용 지출 비중</div><div class="chart-sm"><canvas id="cSpent"></canvas></div></div>
         <div class="card"><div class="chart-label">🛒 거래액 비중</div><div class="chart-sm"><canvas id="cRevenue"></canvas></div></div>
         <div class="card"><div class="chart-label">👆 클릭수 / CTR 비교</div><div class="chart-sm"><canvas id="cCTR"></canvas></div></div>
       </div>
-      <div class="card" style="margin-top:14px"><div class="tbl-wrap" id="compTable"></div></div>
+      <div class="card" style="margin-top:14px">
+        <div class="sub-sec-title"><span>${isMediaTab ? '그룹별 성과' : '매체별 성과'}</span></div>
+        <div class="tbl-wrap" id="compTable"></div>
+      </div>
     </div>
+
     <div id="dailySections"></div>
   `;
 
@@ -404,11 +419,11 @@ function render() {
 // ── KPI ──────────────────────────────────────────────────────
 function renderKPI(t) {
   document.getElementById('kpiGrid').innerHTML=[
-    {label:'총 광고비', value:fmt.won(t.spent),   sub:'집행 비용 합계'},
-    {label:'총 거래액', value:fmt.won(t.revenue), sub:'ROAS: '+fmt.roas(t.roas)},
-    {label:'총 노출수', value:fmt.num(t.imp),     sub:'전체 노출 합계'},
-    {label:'총 클릭수', value:fmt.num(t.clicks),  sub:'CPC: '+fmt.won(t.cpc)},
-    {label:'평균 CTR',  value:fmt.pct(t.ctr),     sub:'Clicks ÷ Impressions'},
+    {label:'총 광고비',value:fmt.won(t.spent),   sub:'집행 비용 합계'},
+    {label:'총 거래액',value:fmt.won(t.revenue), sub:'ROAS: '+fmt.roas(t.roas)},
+    {label:'총 노출수',value:fmt.num(t.imp),     sub:'전체 노출 합계'},
+    {label:'총 클릭수',value:fmt.num(t.clicks),  sub:'CPC: '+fmt.won(t.cpc)},
+    {label:'평균 CTR', value:fmt.pct(t.ctr),     sub:'Clicks ÷ Impressions'},
   ].map(c=>`<div class="kpi-card"><div class="kpi-label">${c.label}</div><div class="kpi-value">${c.value}</div><div class="kpi-sub">${c.sub}</div></div>`).join('');
 }
 
@@ -420,11 +435,10 @@ function renderDonut(id, labels, values, colors) {
   const total=values.reduce((s,v)=>s+v,0);
   const ctx=document.getElementById(id)?.getContext('2d'); if(!ctx)return;
   const many=labels.length>4;
-  // Truncate long labels
-  const shortLabels=labels.map(l=>l.length>20?l.slice(0,19)+'…':l);
+  const sl=labels.map(l=>l.length>18?l.slice(0,17)+'…':l);
   charts[id]=new Chart(ctx,{
     type:'doughnut',
-    data:{labels:shortLabels,datasets:[{data:values,backgroundColor:colors.map(c=>c.bg),borderColor:colors.map(c=>c.border),borderWidth:2,hoverOffset:6}]},
+    data:{labels:sl,datasets:[{data:values,backgroundColor:colors.map(c=>c.bg),borderColor:colors.map(c=>c.border),borderWidth:2,hoverOffset:6}]},
     options:{
       responsive:true,maintainAspectRatio:false,cutout:'62%',
       plugins:{
@@ -439,11 +453,11 @@ function renderCTRChart(comp) {
   dc('cCTR');
   const ctx=document.getElementById('cCTR')?.getContext('2d'); if(!ctx)return;
   const many=comp.labels.length>4;
-  const short=comp.labels.map(l=>l.length>18?l.slice(0,17)+'…':l);
+  const sl=comp.labels.map(l=>l.length>16?l.slice(0,15)+'…':l);
   charts['cCTR']=new Chart(ctx,{
-    data:{labels:short,datasets:[
-      {type:'bar',label:'클릭수',data:comp.clicks,backgroundColor:comp.colors.map(c=>c.bg),borderColor:comp.colors.map(c=>c.border),borderWidth:1,borderRadius:4,yAxisID:'yL'},
-      {type:'line',label:'CTR (%)',data:comp.ctr,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',borderWidth:2,pointRadius:many?3:6,pointBackgroundColor:'#22c55e',yAxisID:'yR',tension:0.3,fill:false}
+    data:{labels:sl,datasets:[
+      {type:'bar',  label:'클릭수',data:comp.clicks,backgroundColor:comp.colors.map(c=>c.bg),borderColor:comp.colors.map(c=>c.border),borderWidth:1,borderRadius:4,yAxisID:'yL'},
+      {type:'line', label:'CTR (%)',data:comp.ctr,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',borderWidth:2,pointRadius:many?3:6,pointBackgroundColor:'#22c55e',yAxisID:'yR',tension:0.3,fill:false}
     ]},
     options:{
       responsive:true,maintainAspectRatio:false,
@@ -459,86 +473,145 @@ function renderCTRChart(comp) {
 
 // ── Comparison table ──────────────────────────────────────────
 function renderCompTable(comp, total) {
-  const isCamp = comp.type === 'campaign';
-  const firstTh = isCamp ? '그룹명 (Adset)' : '매체';
-  const tSpent = comp.spent.reduce((s,v)=>s+v,0);
-  const tRev   = comp.revenue.reduce((s,v)=>s+v,0);
-
-  const tbody = comp.rows.map((r,i)=>{
-    const sp = tSpent>0?(r.spent/tSpent*100).toFixed(1):0;
-    const rp = tRev>0?(r.revenue/tRev*100).toFixed(1):0;
-    const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${comp.colors[i].border};margin-right:6px;flex-shrink:0"></span>`;
-    const name = isCamp ? r.adset : r.media;
-    return `<tr><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${dot}${name}</td><td>${fmt.won(r.spent)} <small style="color:var(--text3)">(${sp}%)</small></td><td>${fmt.won(r.revenue)} <small style="color:var(--text3)">(${rp}%)</small></td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td></tr>`;
+  const isAdset=comp.type==='adset';
+  const firstTh=isAdset?'그룹명':'매체';
+  const tS=comp.spent.reduce((s,v)=>s+v,0), tR=comp.revenue.reduce((s,v)=>s+v,0);
+  const tbody=comp.rows.map((r,i)=>{
+    const sp=tS>0?(r.spent/tS*100).toFixed(1):0;
+    const rp=tR>0?(r.revenue/tR*100).toFixed(1):0;
+    const dot=`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${comp.colors[i].border};margin-right:6px;flex-shrink:0"></span>`;
+    const name=isAdset?r.adset:r.media;
+    return `<tr><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${dot}${name}</td><td>${fmt.won(r.spent)} <small style="color:var(--text3)">(${sp}%)</small></td><td>${fmt.won(r.revenue)} <small style="color:var(--text3)">(${rp}%)</small></td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.num(r.orders)}</td></tr>`;
   }).join('');
-
   const ctr=total.imp>0?total.clicks/total.imp*100:0, cpc=total.clicks>0?total.spent/total.clicks:0;
   document.getElementById('compTable').innerHTML=`
     <table>
-      <thead><tr><th>${firstTh}</th><th>광고비</th><th>거래액</th><th>ROAS</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th></tr></thead>
-      <tbody>${tbody}<tr class="tbl-total"><td>합계</td><td>${fmt.won(total.spent)}</td><td>${fmt.won(total.revenue)}</td><td>${fmt.roas(total.roas)}</td><td>${fmt.num(total.imp)}</td><td>${fmt.num(total.clicks)}</td><td>${fmt.pct(ctr)}</td><td>${fmt.won(cpc)}</td></tr></tbody>
+      <thead><tr><th>${firstTh}</th><th>광고비</th><th>거래액</th><th>ROAS</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>주문수</th></tr></thead>
+      <tbody>${tbody}<tr class="tbl-total"><td>합계</td><td>${fmt.won(total.spent)}</td><td>${fmt.won(total.revenue)}</td><td>${fmt.roas(total.roas)}</td><td>${fmt.num(total.imp)}</td><td>${fmt.num(total.clicks)}</td><td>${fmt.pct(ctr)}</td><td>${fmt.won(cpc)}</td><td>${fmt.num(total.orders)}</td></tr></tbody>
     </table>`;
 }
 
 // ── Daily sections ────────────────────────────────────────────
 function renderDailySections(mediaList, dRows) {
   const el=document.getElementById('dailySections'); if(!mediaList.length){el.innerHTML='';return;}
+
   el.innerHTML=mediaList.map((media,idx)=>{
     const cls=isFb(media)?'badge-fb':'badge-kakao';
-    return `<div class="media-section">
-      <div class="media-header"><span class="media-badge ${cls}">${media}</span><span style="font-size:13px;font-weight:600;color:var(--text2)">매체별 일별 누적 성과</span></div>
+    // Adsets for this media
+    const adsets=[...new Set(parsed.adsetRows.filter(r=>r.media===media).map(r=>r.adset))].sort();
+    const selAdset=state.adsetFilter[media]||'';
+    const adsetOptions=`<option value="">전체 그룹</option>`+adsets.map(a=>`<option value="${a}" ${a===selAdset?'selected':''}>${a}</option>`).join('');
+
+    return `<div class="media-section" id="ms_${idx}">
+      <div class="media-header">
+        <span class="media-badge ${cls}">${media}</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text2)">일별 누적 성과</span>
+      </div>
+
       <div class="three-col">
         <div class="card"><div class="chart-label">📈 일별 노출수 / 클릭수</div><div class="chart-sm"><canvas id="cIC_${idx}"></canvas></div></div>
         <div class="card"><div class="chart-label">💵 일별 CPC 변화</div><div class="chart-sm"><canvas id="cCPC_${idx}"></canvas></div></div>
         <div class="card"><div class="chart-label">🛒 일별 거래액 / ROAS</div><div class="chart-sm"><canvas id="cRev_${idx}"></canvas></div></div>
       </div>
-      <div class="card"><div class="tbl-wrap" id="dTbl_${idx}"></div></div>
+
+      <div class="card">
+        <div class="sub-sec-title">
+          <span>일별 상세 데이터</span>
+          ${adsets.length>1?`<select class="custom-select daily-adset-sel" data-media="${media}" data-idx="${idx}">${adsetOptions}</select>`:''}
+        </div>
+        <div class="tbl-wrap" id="dTbl_${idx}"></div>
+      </div>
+
+      <div class="card">
+        <div class="sub-sec-title">
+          <span>소재별 성과</span>
+          ${adsets.length>1?`<select class="custom-select ads-adset-sel" data-media="${media}" data-idx="${idx}">${adsetOptions}</select>`:''}
+        </div>
+        <div class="tbl-wrap" id="adsTbl_${idx}"></div>
+      </div>
     </div>`;
   }).join('');
 
-  mediaList.forEach((media,idx)=>{
-    const rows=dRows.filter(r=>r.media===media).sort((a,b)=>a.date.localeCompare(b.date));
-    const dates=rows.map(r=>r.date), c=colorOf(media);
-
-    dc(`cIC_${idx}`);
-    const ctx1=document.getElementById(`cIC_${idx}`)?.getContext('2d');
-    if(ctx1) charts[`cIC_${idx}`]=new Chart(ctx1,{
-      data:{labels:dates,datasets:[
-        {type:'bar',label:'노출수',data:rows.map(r=>r.imp),backgroundColor:c.light,borderColor:c.border,borderWidth:1,borderRadius:3,yAxisID:'yL'},
-        {type:'line',label:'클릭수',data:rows.map(r=>r.clicks),borderColor:'#22c55e',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#22c55e',yAxisID:'yR',tension:0.3}
-      ]},options:dualOpts(v=>fmt.num(v),v=>fmt.num(v),'노출수','클릭수')
+  // Attach dropdown listeners
+  document.querySelectorAll('.daily-adset-sel, .ads-adset-sel').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      state.adsetFilter[e.target.dataset.media] = e.target.value;
+      render();
     });
-
-    dc(`cCPC_${idx}`);
-    const ctx2=document.getElementById(`cCPC_${idx}`)?.getContext('2d');
-    if(ctx2) charts[`cCPC_${idx}`]=new Chart(ctx2,{
-      type:'line',
-      data:{labels:dates,datasets:[{label:'CPC',data:rows.map(r=>r.cpc),borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.1)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#f97316',tension:0.3,fill:true}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' CPC: '+fmt.won(c.raw)}}},scales:{y:{ticks:{callback:v=>'₩'+(v>=1000?(v/1000).toFixed(0)+'K':v),font:{size:10}},grid:{color:'#263347'}},x:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:10},maxRotation:45,maxTicksLimit:8}}}}
-    });
-
-    dc(`cRev_${idx}`);
-    const ctx3=document.getElementById(`cRev_${idx}`)?.getContext('2d');
-    if(ctx3) charts[`cRev_${idx}`]=new Chart(ctx3,{
-      data:{labels:dates,datasets:[
-        {type:'bar',label:'거래액',data:rows.map(r=>r.revenue),backgroundColor:c.bg,borderColor:c.border,borderWidth:0,borderRadius:3,yAxisID:'yL'},
-        {type:'line',label:'ROAS',data:rows.map(r=>r.roas),borderColor:'#a78bfa',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#a78bfa',yAxisID:'yR',tension:0.3}
-      ]},options:dualOpts(v=>'₩'+(v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v),v=>v+'%','거래액','ROAS')
-    });
-
-    const sub={spent:0,imp:0,clicks:0,revenue:0};
-    rows.forEach(r=>{sub.spent+=r.spent;sub.imp+=r.imp;sub.clicks+=r.clicks;sub.revenue+=r.revenue;});
-    const sCtr=sub.imp>0?sub.clicks/sub.imp*100:0, sCpc=sub.clicks>0?sub.spent/sub.clicks:0, sRoas=sub.spent>0?sub.revenue/sub.spent*100:0;
-
-    document.getElementById(`dTbl_${idx}`).innerHTML=`
-      <table>
-        <thead><tr><th>일자</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th></tr></thead>
-        <tbody>
-          ${rows.map(r=>`<tr><td>${r.date}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td></tr>`).join('')}
-          <tr class="tbl-total"><td>합계</td><td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td></tr>
-        </tbody>
-      </table>`;
   });
+
+  mediaList.forEach((media,idx) => buildMediaCharts(media, idx, dRows));
+}
+
+function buildMediaCharts(media, idx, dRows) {
+  const selAdset = state.adsetFilter[media] || '';
+  const c = colorOf(media);
+
+  // Daily rows for charts: filtered by adset if selected
+  let rows;
+  if (selAdset) {
+    rows = parsed.adsetDailyRows.filter(r => r.media===media && r.adset===selAdset && filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
+  } else {
+    rows = dRows.filter(r=>r.media===media).sort((a,b)=>a.date.localeCompare(b.date));
+  }
+  const dates = rows.map(r=>r.date);
+
+  dc(`cIC_${idx}`);
+  const ctx1=document.getElementById(`cIC_${idx}`)?.getContext('2d');
+  if(ctx1) charts[`cIC_${idx}`]=new Chart(ctx1,{
+    data:{labels:dates,datasets:[
+      {type:'bar',label:'노출수',data:rows.map(r=>r.imp),backgroundColor:c.light,borderColor:c.border,borderWidth:1,borderRadius:3,yAxisID:'yL'},
+      {type:'line',label:'클릭수',data:rows.map(r=>r.clicks),borderColor:'#22c55e',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#22c55e',yAxisID:'yR',tension:0.3}
+    ]},options:dualOpts(v=>fmt.num(v),v=>fmt.num(v),'노출수','클릭수')
+  });
+
+  dc(`cCPC_${idx}`);
+  const ctx2=document.getElementById(`cCPC_${idx}`)?.getContext('2d');
+  if(ctx2) charts[`cCPC_${idx}`]=new Chart(ctx2,{
+    type:'line',
+    data:{labels:dates,datasets:[{label:'CPC',data:rows.map(r=>r.cpc),borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.1)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#f97316',tension:0.3,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' CPC: '+fmt.won(c.raw)}}},scales:{y:{ticks:{callback:v=>'₩'+(v>=1000?(v/1000).toFixed(0)+'K':v),font:{size:10}},grid:{color:'#263347'}},x:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:10},maxRotation:45,maxTicksLimit:8}}}}
+  });
+
+  dc(`cRev_${idx}`);
+  const ctx3=document.getElementById(`cRev_${idx}`)?.getContext('2d');
+  if(ctx3) charts[`cRev_${idx}`]=new Chart(ctx3,{
+    data:{labels:dates,datasets:[
+      {type:'bar',label:'거래액',data:rows.map(r=>r.revenue),backgroundColor:c.bg,borderColor:c.border,borderWidth:0,borderRadius:3,yAxisID:'yL'},
+      {type:'line',label:'ROAS',data:rows.map(r=>r.roas),borderColor:'#a78bfa',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#a78bfa',yAxisID:'yR',tension:0.3}
+    ]},options:dualOpts(v=>'₩'+(v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v),v=>Math.round(v)+'%','거래액','ROAS')
+  });
+
+  // Daily table
+  const sub={spent:0,imp:0,clicks:0,revenue:0,orders:0};
+  rows.forEach(r=>{sub.spent+=r.spent;sub.imp+=r.imp;sub.clicks+=r.clicks;sub.revenue+=r.revenue;sub.orders+=r.orders||0;});
+  const sCtr=sub.imp>0?sub.clicks/sub.imp*100:0, sCpc=sub.clicks>0?sub.spent/sub.clicks:0, sRoas=sub.spent>0?sub.revenue/sub.spent*100:0;
+  document.getElementById(`dTbl_${idx}`).innerHTML=`
+    <table>
+      <thead><tr><th>일자</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th><th>주문수</th></tr></thead>
+      <tbody>
+        ${rows.map(r=>`<tr><td>${r.date}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.orders||0)}</td></tr>`).join('')}
+        <tr class="tbl-total"><td>합계</td><td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td><td>${fmt.num(sub.orders)}</td></tr>
+      </tbody>
+    </table>`;
+
+  // Creative (ads) table
+  let adsRows = parsed.adsRows.filter(r => r.media===media);
+  if (selAdset) adsRows = adsRows.filter(r => r.adset===selAdset);
+  adsRows = adsRows.sort((a,b) => b.spent-a.spent);
+
+  const aSub={spent:0,imp:0,clicks:0,revenue:0,orders:0};
+  adsRows.forEach(r=>{aSub.spent+=r.spent;aSub.imp+=r.imp;aSub.clicks+=r.clicks;aSub.revenue+=r.revenue;aSub.orders+=r.orders||0;});
+  const aCtr=aSub.imp>0?aSub.clicks/aSub.imp*100:0, aCpc=aSub.clicks>0?aSub.spent/aSub.clicks:0, aRoas=aSub.spent>0?aSub.revenue/aSub.spent*100:0;
+
+  document.getElementById(`adsTbl_${idx}`).innerHTML=`
+    <table>
+      <thead><tr><th>소재명</th><th>그룹명</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th></tr></thead>
+      <tbody>
+        ${adsRows.map(r=>`<tr><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ads}</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${r.adset}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td></tr>`).join('')}
+        <tr class="tbl-total"><td>합계</td><td>-</td><td>${fmt.won(aSub.spent)}</td><td>${fmt.num(aSub.imp)}</td><td>${fmt.num(aSub.clicks)}</td><td>${fmt.pct(aCtr)}</td><td>${fmt.won(aCpc)}</td><td>${fmt.won(aSub.revenue)}</td><td>${fmt.roas(aRoas)}</td></tr>
+      </tbody>
+    </table>`;
 }
 
 function dualOpts(fmtL,fmtR,labelL,labelR) {

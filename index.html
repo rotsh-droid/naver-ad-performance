@@ -969,104 +969,73 @@ function n(v) { return `<span class="ai-num">${v}</span>`; }
 function generateAISummary(dRows) {
   if (!parsed || !dRows.length) return '<div style="color:var(--text3);font-size:12px">해당 기간 데이터가 없습니다.</div>';
 
+  const sg = v => v >= 0 ? '+' : '';
   const medias = [...new Set(dRows.map(r=>r.media))];
   let html = '';
 
   for (const media of medias) {
-    const mediaDailyRows = dRows.filter(r=>r.media===media).sort((a,b)=>a.date.localeCompare(b.date));
-    const mediaAdsetRows = parsed.adsetRows.filter(r=>r.media===media);
-    const mediaAdsRows   = parsed.adsRows.filter(r=>r.media===media);
-    const mediaLabel     = isFb(media) ? 'Facebook Ads (Instagram)' : media;
-    const bullets = [];
+    const dailyRows  = dRows.filter(r=>r.media===media).sort((a,b)=>a.date.localeCompare(b.date));
+    const adsetRows  = parsed.adsetRows.filter(r=>r.media===media);
+    const adsRows    = parsed.adsRows.filter(r=>r.media===media);
+    const label      = isFb(media) ? 'Facebook Ads (Instagram)' : media;
+    const bullets    = [];
 
-    // ① 최근일 지표
-    const dates = mediaDailyRows.map(r=>r.date).sort();
-    const latestDate = dates[dates.length-1];
-    const latestRow  = mediaDailyRows.find(r=>r.date===latestDate);
+    // ① 최근일 CTR·CPC
+    const dates     = dailyRows.map(r=>r.date).sort();
+    const latest    = dailyRows.find(r=>r.date===dates[dates.length-1]);
+    if (latest) {
+      bullets.push(`${n(dates[dates.length-1])} CTR ${n(fmt.pct(latest.ctr))} · CPC ${n(fmt.won(latest.cpc))} · 광고비 ${n(fmt.won(latest.spent))}`);
 
-    if (latestRow) {
-      bullets.push(`최근일(${n(latestDate)}) CTR ${n(fmt.pct(latestRow.ctr))}, CPC ${n(fmt.won(latestRow.cpc))}, 광고비 ${n(fmt.won(latestRow.spent))} 기록`);
-
-      // ② 전일 대비 (2일 이상 데이터 있을 때만)
+      // ② 전일 대비 (2일+ 일 때만)
       if (dates.length >= 2) {
-        const prevDate = dates[dates.length-2];
-        const prevRow  = mediaDailyRows.find(r=>r.date===prevDate);
-        if (prevRow) {
-          const dc = latestRow.ctr - prevRow.ctr;
-          const dp = latestRow.cpc - prevRow.cpc;
-          const ds = latestRow.spent - prevRow.spent;
-          const sg = v => v >= 0 ? '+' : '';
-          bullets.push(
-            `전일(${n(prevDate)}) 대비 CTR ${n(sg(dc)+dc.toFixed(2)+'%p')}, CPC ${n(sg(dp)+Math.round(dp).toLocaleString('ko-KR')+'원')}, 광고비 ${n(sg(ds)+fmt.won(Math.abs(ds)))} 변화 기록`
-          );
+        const prev = dailyRows.find(r=>r.date===dates[dates.length-2]);
+        if (prev) {
+          const dc = latest.ctr - prev.ctr;
+          const dp = latest.cpc - prev.cpc;
+          bullets.push(`전일 대비 CTR ${n(sg(dc)+dc.toFixed(2)+'%p')} / CPC ${n(sg(dp)+Math.round(dp).toLocaleString('ko-KR')+'원')}`);
         }
       }
     }
 
-    // ③ 최다 클릭 그룹
-    if (mediaAdsetRows.length > 0) {
-      const topClick = [...mediaAdsetRows].sort((a,b)=>b.clicks-a.clicks)[0];
-      const topSpent = [...mediaAdsetRows].sort((a,b)=>b.spent-a.spent)[0];
-      bullets.push(
-        `${n(topClick.adset)} 그룹 광고비 ${n(fmt.won(topClick.spent))}, 클릭 ${n(fmt.num(topClick.clicks)+'건')}으로 전체 그룹 내 최다 클릭 기록`
-      );
-      if (topSpent.adset !== topClick.adset) {
-        bullets.push(
-          `${n(topSpent.adset)} 그룹 광고비 ${n(fmt.won(topSpent.spent))}으로 전체 그룹 중 최고 광고비 기록`
-        );
-      }
+    // ③ 그룹 클릭 1위
+    if (adsetRows.length > 0) {
+      const top = [...adsetRows].sort((a,b)=>b.clicks-a.clicks)[0];
+      bullets.push(`${n(top.adset)} 클릭 ${n(fmt.num(top.clicks)+'건')} · 광고비 ${n(fmt.won(top.spent))} — 그룹 클릭 1위`);
     }
 
-    // ④ 그룹 내 상위 소재 vs 그룹 평균
+    // ④ 그룹 내 CTR 상위 소재 (그룹 평균 20%+ 초과 시만)
     const adsetMap = {};
-    mediaAdsRows.forEach(r => { if (!adsetMap[r.adset]) adsetMap[r.adset]=[]; adsetMap[r.adset].push(r); });
-
-    Object.entries(adsetMap).forEach(([adset, creatives]) => {
-      if (creatives.length < 2) return;
-      const avgCtr = creatives.reduce((s,r)=>s+r.ctr,0)/creatives.length;
-      const avgCpc = creatives.reduce((s,r)=>s+r.cpc,0)/creatives.length;
-      const top    = [...creatives].sort((a,b)=>b.ctr-a.ctr)[0];
-      if (top.ctr > avgCtr * 1.2) {
-        bullets.push(
-          `${n(top.ads)} 소재 CTR ${n(fmt.pct(top.ctr))}, CPC ${n(fmt.won(top.cpc))}으로 동일 그룹 평균 CTR ${n(fmt.pct(avgCtr))}, CPC ${n(fmt.won(avgCpc))} 대비 CTR ${n((top.ctr-avgCtr).toFixed(2)+'%p')} 높게 기록`
-        );
-      }
+    adsRows.forEach(r => { if (!adsetMap[r.adset]) adsetMap[r.adset]=[]; adsetMap[r.adset].push(r); });
+    Object.entries(adsetMap).forEach(([adset, cr]) => {
+      if (cr.length < 2) return;
+      const avgCtr = cr.reduce((s,r)=>s+r.ctr,0)/cr.length;
+      const top    = [...cr].sort((a,b)=>b.ctr-a.ctr)[0];
+      if (top.ctr > avgCtr * 1.2)
+        bullets.push(`${n(top.ads)} CTR ${n(fmt.pct(top.ctr))} · CPC ${n(fmt.won(top.cpc))} — 그룹 평균 대비 CTR ${n('+'+(top.ctr-avgCtr).toFixed(2)+'%p')}`);
     });
 
-    // ⑤ 전체 소재 TOP 랭킹
-    if (mediaAdsRows.length >= 2) {
-      const byCtr    = [...mediaAdsRows].sort((a,b)=>b.ctr-a.ctr);
-      const byClicks = [...mediaAdsRows].sort((a,b)=>b.clicks-a.clicks);
-      const byRoas   = [...mediaAdsRows].filter(r=>r.roas>0).sort((a,b)=>b.roas-a.roas);
+    // ⑤ 전체 소재 CTR·클릭·ROAS 1위
+    if (adsRows.length >= 2) {
+      const byCtr    = [...adsRows].sort((a,b)=>b.ctr-a.ctr);
+      const byClicks = [...adsRows].sort((a,b)=>b.clicks-a.clicks);
+      const byRoas   = [...adsRows].filter(r=>r.roas>0).sort((a,b)=>b.roas-a.roas);
 
-      bullets.push(
-        `${n(byCtr[0].ads)} 소재 CTR ${n(fmt.pct(byCtr[0].ctr))}, CPC ${n(fmt.won(byCtr[0].cpc))}으로 전체 소재 중 CTR ${n('1위')} 기록`
-      );
+      bullets.push(`${n(byCtr[0].ads)} CTR ${n(fmt.pct(byCtr[0].ctr))} · CPC ${n(fmt.won(byCtr[0].cpc))} — 소재 CTR ${n('1위')}`);
 
-      if (byClicks[0].ads !== byCtr[0].ads) {
-        bullets.push(
-          `${n(byClicks[0].ads)} 소재 클릭 ${n(fmt.num(byClicks[0].clicks)+'건')}으로 전체 소재 중 클릭수 ${n('1위')} 기록`
-        );
-      }
+      if (byClicks[0].ads !== byCtr[0].ads)
+        bullets.push(`${n(byClicks[0].ads)} 클릭 ${n(fmt.num(byClicks[0].clicks)+'건')} — 소재 클릭수 ${n('1위')}`);
 
-      if (byRoas.length > 0 && byRoas[0].ads !== byCtr[0].ads) {
-        bullets.push(
-          `${n(byRoas[0].ads)} 소재 ROAS ${n(fmt.roas(byRoas[0].roas))}, 매출 ${n(fmt.won(byRoas[0].revenue))}으로 전체 소재 중 ROAS ${n('1위')} 기록`
-        );
-      }
+      if (byRoas.length && byRoas[0].ads !== byCtr[0].ads)
+        bullets.push(`${n(byRoas[0].ads)} ROAS ${n(fmt.roas(byRoas[0].roas))} · 매출 ${n(fmt.won(byRoas[0].revenue))} — 소재 ROAS ${n('1위')}`);
 
-      // ⑥ CTR 하위 소재
-      const lowest = byCtr[byCtr.length-1];
-      if (lowest.ads !== byCtr[0].ads) {
-        bullets.push(
-          `${n(lowest.ads)} 소재 CTR ${n(fmt.pct(lowest.ctr))}, CPC ${n(fmt.won(lowest.cpc))}으로 전체 소재 중 CTR 최하위 기록`
-        );
-      }
+      const low = byCtr[byCtr.length-1];
+      if (low.ads !== byCtr[0].ads)
+        bullets.push(`${n(low.ads)} CTR ${n(fmt.pct(low.ctr))} · CPC ${n(fmt.won(low.cpc))} — 소재 CTR 최하위`);
     }
 
     html += `
       <div class="ai-block">
-        <div class="ai-media-label">[${mediaLabel}]</div>
+        <div class="ai-media-label">[${label}]</div>
         <ul class="ai-bullets">${bullets.map(b=>`<li>${b}</li>`).join('')}</ul>
       </div>`;
   }

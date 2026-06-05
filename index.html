@@ -152,6 +152,23 @@
     #imgModalImg { max-width: 80vw; max-height: 75vh; object-fit: contain; border-radius: 6px; display: block; }
     #imgModalName { font-size: 13px; color: #334155; font-weight: 600; text-align: center; }
 
+    /* AI Summary */
+    .ai-card {
+      background: linear-gradient(135deg, rgba(34,197,94,.07) 0%, rgba(99,102,241,.07) 100%);
+      border: 1px solid rgba(99,102,241,.25); border-radius: 12px; padding: 20px 24px;
+    }
+    .ai-card-header { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+    .ai-badge { background:rgba(34,197,94,.15); color:#22c55e; border:1px solid rgba(34,197,94,.3); border-radius:20px; padding:3px 12px; font-size:11px; font-weight:700; letter-spacing:.5px; }
+    .ai-period { font-size:11px; color:var(--text3); }
+    .ai-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; }
+    .ai-block {}
+    .ai-media-label { font-size:12px; font-weight:700; color:#a5b4fc; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+    .ai-media-label::before { content:''; display:inline-block; width:3px; height:14px; background:#a5b4fc; border-radius:2px; }
+    .ai-bullets { list-style:none; display:flex; flex-direction:column; gap:7px; }
+    .ai-bullets li { font-size:12px; color:var(--text2); padding-left:14px; position:relative; line-height:1.5; }
+    .ai-bullets li::before { content:'*'; position:absolute; left:0; color:#22c55e; font-weight:700; }
+    .ai-num { color:#f1f5f9; font-weight:600; }
+
     /* State */
     .state-box { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:300px; gap:12px; color:var(--text3); }
     .spinner { width:34px; height:34px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
@@ -527,6 +544,14 @@ function render() {
       <div class="info-chip">📅 기간: <strong>${dateStr||'-'}</strong></div>
     </div>
 
+    ${state.media==='all' ? `<div class="ai-card">
+      <div class="ai-card-header">
+        <span class="ai-badge">AI 요약</span>
+        <span class="ai-period">${dateStr} 기준 성과 분석</span>
+      </div>
+      <div class="ai-grid" id="aiSummary"><div style="color:var(--text3);font-size:12px">분석 중…</div></div>
+    </div>` : ''}
+
     <div>
       <div class="sec-title">전체 요약</div>
       <div class="kpi-grid" id="kpiGrid"></div>
@@ -562,8 +587,13 @@ function render() {
     render();
   });
 
-  if (state.media === 'all') renderUnifiedDailySection();
-  else renderDailySections(dailyMedias, dRows);
+  if (state.media === 'all') {
+    const el = document.getElementById('aiSummary');
+    if (el) el.innerHTML = generateAISummary(dRows);
+    renderUnifiedDailySection();
+  } else {
+    renderDailySections(dailyMedias, dRows);
+  }
 }
 
 // ── KPI ──────────────────────────────────────────────────────
@@ -929,6 +959,117 @@ function buildMediaCharts(media, idx, dRows) {
         <tr class="tbl-total"><td>합계</td><td>-</td><td>-</td><td>${fmt.won(aSub.spent)}</td><td>${fmt.num(aSub.imp)}</td><td>${fmt.num(aSub.clicks)}</td><td>${fmt.pct(aCtr)}</td><td>${fmt.won(aCpc)}</td><td>${fmt.won(aSub.revenue)}</td><td>${fmt.roas(aRoas)}</td></tr>
       </tbody>
     </table>`;
+}
+
+// ── AI Summary ───────────────────────────────────────────────
+function n(v) { return `<span class="ai-num">${v}</span>`; }
+
+function generateAISummary(dRows) {
+  if (!parsed || !dRows.length) return '<div style="color:var(--text3);font-size:12px">해당 기간 데이터가 없습니다.</div>';
+
+  const medias = [...new Set(dRows.map(r=>r.media))];
+  let html = '';
+
+  for (const media of medias) {
+    const mediaDailyRows = dRows.filter(r=>r.media===media).sort((a,b)=>a.date.localeCompare(b.date));
+    const mediaAdsetRows = parsed.adsetRows.filter(r=>r.media===media);
+    const mediaAdsRows   = parsed.adsRows.filter(r=>r.media===media);
+    const mediaLabel     = isFb(media) ? 'Facebook Ads (Instagram)' : media;
+    const bullets = [];
+
+    // ① 최근일 지표
+    const dates = mediaDailyRows.map(r=>r.date).sort();
+    const latestDate = dates[dates.length-1];
+    const latestRow  = mediaDailyRows.find(r=>r.date===latestDate);
+
+    if (latestRow) {
+      bullets.push(`최근일(${n(latestDate)}) CTR ${n(fmt.pct(latestRow.ctr))}, CPC ${n(fmt.won(latestRow.cpc))}, 광고비 ${n(fmt.won(latestRow.spent))} 기록`);
+
+      // ② 전일 대비 (2일 이상 데이터 있을 때만)
+      if (dates.length >= 2) {
+        const prevDate = dates[dates.length-2];
+        const prevRow  = mediaDailyRows.find(r=>r.date===prevDate);
+        if (prevRow) {
+          const dc = latestRow.ctr - prevRow.ctr;
+          const dp = latestRow.cpc - prevRow.cpc;
+          const ds = latestRow.spent - prevRow.spent;
+          const sg = v => v >= 0 ? '+' : '';
+          bullets.push(
+            `전일(${n(prevDate)}) 대비 CTR ${n(sg(dc)+dc.toFixed(2)+'%p')}, CPC ${n(sg(dp)+Math.round(dp).toLocaleString('ko-KR')+'원')}, 광고비 ${n(sg(ds)+fmt.won(Math.abs(ds)))} 변화 기록`
+          );
+        }
+      }
+    }
+
+    // ③ 최다 클릭 그룹
+    if (mediaAdsetRows.length > 0) {
+      const topClick = [...mediaAdsetRows].sort((a,b)=>b.clicks-a.clicks)[0];
+      const topSpent = [...mediaAdsetRows].sort((a,b)=>b.spent-a.spent)[0];
+      bullets.push(
+        `${n(topClick.adset)} 그룹 광고비 ${n(fmt.won(topClick.spent))}, 클릭 ${n(fmt.num(topClick.clicks)+'건')}으로 전체 그룹 내 최다 클릭 기록`
+      );
+      if (topSpent.adset !== topClick.adset) {
+        bullets.push(
+          `${n(topSpent.adset)} 그룹 광고비 ${n(fmt.won(topSpent.spent))}으로 전체 그룹 중 최고 광고비 기록`
+        );
+      }
+    }
+
+    // ④ 그룹 내 상위 소재 vs 그룹 평균
+    const adsetMap = {};
+    mediaAdsRows.forEach(r => { if (!adsetMap[r.adset]) adsetMap[r.adset]=[]; adsetMap[r.adset].push(r); });
+
+    Object.entries(adsetMap).forEach(([adset, creatives]) => {
+      if (creatives.length < 2) return;
+      const avgCtr = creatives.reduce((s,r)=>s+r.ctr,0)/creatives.length;
+      const avgCpc = creatives.reduce((s,r)=>s+r.cpc,0)/creatives.length;
+      const top    = [...creatives].sort((a,b)=>b.ctr-a.ctr)[0];
+      if (top.ctr > avgCtr * 1.2) {
+        bullets.push(
+          `${n(top.ads)} 소재 CTR ${n(fmt.pct(top.ctr))}, CPC ${n(fmt.won(top.cpc))}으로 동일 그룹 평균 CTR ${n(fmt.pct(avgCtr))}, CPC ${n(fmt.won(avgCpc))} 대비 CTR ${n((top.ctr-avgCtr).toFixed(2)+'%p')} 높게 기록`
+        );
+      }
+    });
+
+    // ⑤ 전체 소재 TOP 랭킹
+    if (mediaAdsRows.length >= 2) {
+      const byCtr    = [...mediaAdsRows].sort((a,b)=>b.ctr-a.ctr);
+      const byClicks = [...mediaAdsRows].sort((a,b)=>b.clicks-a.clicks);
+      const byRoas   = [...mediaAdsRows].filter(r=>r.roas>0).sort((a,b)=>b.roas-a.roas);
+
+      bullets.push(
+        `${n(byCtr[0].ads)} 소재 CTR ${n(fmt.pct(byCtr[0].ctr))}, CPC ${n(fmt.won(byCtr[0].cpc))}으로 전체 소재 중 CTR ${n('1위')} 기록`
+      );
+
+      if (byClicks[0].ads !== byCtr[0].ads) {
+        bullets.push(
+          `${n(byClicks[0].ads)} 소재 클릭 ${n(fmt.num(byClicks[0].clicks)+'건')}으로 전체 소재 중 클릭수 ${n('1위')} 기록`
+        );
+      }
+
+      if (byRoas.length > 0 && byRoas[0].ads !== byCtr[0].ads) {
+        bullets.push(
+          `${n(byRoas[0].ads)} 소재 ROAS ${n(fmt.roas(byRoas[0].roas))}, 매출 ${n(fmt.won(byRoas[0].revenue))}으로 전체 소재 중 ROAS ${n('1위')} 기록`
+        );
+      }
+
+      // ⑥ CTR 하위 소재
+      const lowest = byCtr[byCtr.length-1];
+      if (lowest.ads !== byCtr[0].ads) {
+        bullets.push(
+          `${n(lowest.ads)} 소재 CTR ${n(fmt.pct(lowest.ctr))}, CPC ${n(fmt.won(lowest.cpc))}으로 전체 소재 중 CTR 최하위 기록`
+        );
+      }
+    }
+
+    html += `
+      <div class="ai-block">
+        <div class="ai-media-label">[${mediaLabel}]</div>
+        <ul class="ai-bullets">${bullets.map(b=>`<li>${b}</li>`).join('')}</ul>
+      </div>`;
+  }
+
+  return html || '<div style="color:var(--text3);font-size:12px">분석 데이터 없음</div>';
 }
 
 // ── Bubble chart ─────────────────────────────────────────────

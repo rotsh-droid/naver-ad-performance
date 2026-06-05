@@ -228,8 +228,8 @@ function toDriveImg(url, sz='w120') {
 function showImgHover(el, e) {
   const h=document.getElementById('imgHover'), img=document.getElementById('imgHoverImg');
   img.src = el.dataset.large;
-  if (el.dataset.kakao==='1') { img.style.width='320px'; img.style.height='auto'; img.style.maxHeight='160px'; }
-  else                        { img.style.width='200px'; img.style.height='200px'; }
+  if (el.dataset.kakao==='1') { img.style.width='540px'; img.style.height='auto'; img.style.maxHeight='240px'; }
+  else                        { img.style.width='360px'; img.style.height='360px'; }
   h.style.display='block'; moveImgHover(e);
 }
 function moveImgHover(e) {
@@ -508,6 +508,19 @@ function render() {
   const dateStr = state.dateFrom===state.dateTo ? state.dateFrom : `${state.dateFrom} ~ ${state.dateTo}`;
   const isMediaTab = state.media !== 'all';
 
+  // 매체 탭일 때 그룹 드롭다운 준비
+  const currentMediaName = mRows.length > 0 ? mRows[0].media : '';
+  const mediaAdsets = currentMediaName
+    ? [...new Set(parsed.adsetRows.filter(r=>r.media===currentMediaName).map(r=>r.adset))].sort()
+    : [];
+  const selAdset = state.adsetFilter[currentMediaName] || '';
+  const adsetDropdown = isMediaTab && mediaAdsets.length > 1
+    ? `<select class="custom-select" id="secAdsetSel" style="min-width:150px">
+        <option value="">전체 그룹</option>
+        ${mediaAdsets.map(a=>`<option value="${a}" ${a===selAdset?'selected':''}>${a}</option>`).join('')}
+       </select>`
+    : '';
+
   document.getElementById('content').innerHTML = `
     <div class="info-strip">
       <div class="info-chip">📌 기획전: <strong>${state.event||'-'}</strong></div>
@@ -520,7 +533,10 @@ function render() {
     </div>
 
     <div>
-      <div class="sec-title">${isMediaTab ? '그룹별 누적 성과 비중' : '매체별 누적 성과 비중'}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <div class="sec-title" style="margin-bottom:0">${isMediaTab ? '그룹별 누적 성과 비중' : '매체별 누적 성과 비중'}</div>
+        ${adsetDropdown}
+      </div>
       <div class="three-col">
         <div class="card"><div class="chart-label">💰 비용 지출 비중</div><div class="chart-sm"><canvas id="cSpent"></canvas></div></div>
         <div class="card"><div class="chart-label">🛒 거래액 비중</div><div class="chart-sm"><canvas id="cRevenue"></canvas></div></div>
@@ -540,6 +556,12 @@ function render() {
   renderDonut('cRevenue', comp.labels, comp.revenue, comp.colors);
   renderCTRChart(comp);
   renderCompTable(comp, total);
+  // 그룹 드롭박스 이벤트
+  document.getElementById('secAdsetSel')?.addEventListener('change', e => {
+    state.adsetFilter[currentMediaName] = e.target.value;
+    render();
+  });
+
   if (state.media === 'all') renderUnifiedDailySection();
   else renderDailySections(dailyMedias, dRows);
 }
@@ -753,7 +775,6 @@ function renderDailySections(mediaList, dRows) {
       <div class="media-header">
         <span class="media-badge ${cls}">${media}</span>
         <span style="font-size:13px;font-weight:600;color:var(--text2)">일별 누적 성과</span>
-        ${adsets.length>1?`<select class="custom-select adset-main-sel" data-media="${media}" data-idx="${idx}">${adsetOptions}</select>`:''}
       </div>
 
       <div class="three-col">

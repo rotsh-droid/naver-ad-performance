@@ -113,6 +113,21 @@
     .sub-sec-title span { display: flex; align-items: center; gap: 6px; }
     .sub-sec-title span::before { content:''; display:inline-block; width:3px; height:13px; background:var(--text3); border-radius:2px; }
 
+    /* Creative image hover zoom */
+    .creative-img {
+      width: 36px; height: 36px; object-fit: cover;
+      border-radius: 6px; border: 1px solid var(--border);
+      cursor: zoom-in; vertical-align: middle; flex-shrink: 0;
+      transition: transform .25s ease, box-shadow .25s ease;
+      position: relative; z-index: 1;
+    }
+    .creative-img:hover {
+      transform: scale(5);
+      z-index: 999;
+      box-shadow: 0 8px 40px rgba(0,0,0,.7);
+    }
+    td:has(.creative-img) { overflow: visible !important; }
+
     /* State */
     .state-box { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:300px; gap:12px; color:var(--text3); }
     .spinner { width:34px; height:34px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
@@ -634,20 +649,22 @@ function buildMediaCharts(media, idx, dRows) {
   // Creative (ads) table
   let adsRows = parsed.adsRows.filter(r => r.media===media);
   if (selAdset) adsRows = adsRows.filter(r => r.adset===selAdset);
-  adsRows = adsRows.sort((a,b) => {
-    if (a.adset !== b.adset) return a.adset.localeCompare(b.adset);
-    return b.spent - a.spent;
-  });
+  adsRows = selAdset
+    ? adsRows.sort((a,b) => b.spent - a.spent)
+    : adsRows.sort((a,b) =>
+        (a.campaign||'').localeCompare(b.campaign) ||
+        (a.adset||'').localeCompare(b.adset) ||
+        (a.ads||'').localeCompare(b.ads)
+      );
 
   const aSub={spent:0,imp:0,clicks:0,revenue:0,orders:0};
   adsRows.forEach(r=>{aSub.spent+=r.spent;aSub.imp+=r.imp;aSub.clicks+=r.clicks;aSub.revenue+=r.revenue;aSub.orders+=r.orders||0;});
   const aCtr=aSub.imp>0?aSub.clicks/aSub.imp*100:0, aCpc=aSub.clicks>0?aSub.spent/aSub.clicks:0, aRoas=aSub.spent>0?aSub.revenue/aSub.spent*100:0;
 
-  const tdStyle = `style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left"`;
+  const tdS = `style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left"`;
   document.getElementById(`adsTbl_${idx}`).innerHTML=`
-    <table>
+    <table style="overflow:visible">
       <thead><tr>
-        <th style="text-align:left">이미지</th>
         <th style="text-align:left">캠페인</th>
         <th style="text-align:left">그룹명</th>
         <th style="text-align:left">소재명</th>
@@ -656,18 +673,20 @@ function buildMediaCharts(media, idx, dRows) {
       <tbody>
         ${adsRows.map(r=>{
           const imgUrl = imageMap[r.ads]||'';
-          const imgCell = imgUrl
-            ? `<td style="padding:6px 12px"><img src="${imgUrl}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:block" onerror="this.style.display='none'" /></td>`
-            : `<td style="color:var(--text3);text-align:center">-</td>`;
+          const imgTag = imgUrl ? `<img class="creative-img" src="${imgUrl}" onerror="this.style.display='none'" />` : '';
           return `<tr>
-            ${imgCell}
-            <td ${tdStyle}>${r.campaign||'-'}</td>
-            <td ${tdStyle}>${r.adset||'-'}</td>
-            <td ${tdStyle}>${r.ads||'-'}</td>
+            <td ${tdS}>${r.campaign||'-'}</td>
+            <td ${tdS}>${r.adset||'-'}</td>
+            <td style="text-align:left;white-space:nowrap">
+              <div style="display:flex;align-items:center;gap:8px">
+                ${imgTag}
+                <span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ads||'-'}</span>
+              </div>
+            </td>
             <td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td>
           </tr>`;
         }).join('')}
-        <tr class="tbl-total"><td>-</td><td>합계</td><td>-</td><td>-</td><td>${fmt.won(aSub.spent)}</td><td>${fmt.num(aSub.imp)}</td><td>${fmt.num(aSub.clicks)}</td><td>${fmt.pct(aCtr)}</td><td>${fmt.won(aCpc)}</td><td>${fmt.won(aSub.revenue)}</td><td>${fmt.roas(aRoas)}</td></tr>
+        <tr class="tbl-total"><td>합계</td><td>-</td><td>-</td><td>${fmt.won(aSub.spent)}</td><td>${fmt.num(aSub.imp)}</td><td>${fmt.num(aSub.clicks)}</td><td>${fmt.pct(aCtr)}</td><td>${fmt.won(aCpc)}</td><td>${fmt.won(aSub.revenue)}</td><td>${fmt.roas(aRoas)}</td></tr>
       </tbody>
     </table>`;
 }

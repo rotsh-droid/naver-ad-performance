@@ -238,7 +238,7 @@ function parseRaw(data) {
   const aMap = {};
   rows.forEach(r => {
     const k=r.media+'||'+r.adset;
-    if (!aMap[k]) aMap[k]={media:r.media,adset:r.adset,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    if (!aMap[k]) aMap[k]={media:r.media,campaign:r.campaign,adset:r.adset,spent:0,imp:0,clicks:0,revenue:0,orders:0};
     const m=aMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
   });
 
@@ -254,7 +254,7 @@ function parseRaw(data) {
   const adMap = {};
   rows.forEach(r => {
     const k=r.media+'||'+r.adset+'||'+r.date;
-    if (!adMap[k]) adMap[k]={media:r.media,adset:r.adset,date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    if (!adMap[k]) adMap[k]={media:r.media,campaign:r.campaign,adset:r.adset,date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
     const m=adMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
   });
 
@@ -262,7 +262,7 @@ function parseRaw(data) {
   const adsMap = {};
   rows.forEach(r => {
     const k=r.media+'||'+r.adset+'||'+r.ads;
-    if (!adsMap[k]) adsMap[k]={media:r.media,adset:r.adset,ads:r.ads,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    if (!adsMap[k]) adsMap[k]={media:r.media,campaign:r.campaign,adset:r.adset,ads:r.ads,spent:0,imp:0,clicks:0,revenue:0,orders:0};
     const m=adsMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
   });
 
@@ -506,6 +506,7 @@ function renderDailySections(mediaList, dRows) {
       <div class="media-header">
         <span class="media-badge ${cls}">${media}</span>
         <span style="font-size:13px;font-weight:600;color:var(--text2)">일별 누적 성과</span>
+        ${adsets.length>1?`<select class="custom-select adset-main-sel" data-media="${media}" data-idx="${idx}">${adsetOptions}</select>`:''}
       </div>
 
       <div class="three-col">
@@ -515,25 +516,19 @@ function renderDailySections(mediaList, dRows) {
       </div>
 
       <div class="card">
-        <div class="sub-sec-title">
-          <span>일별 상세 데이터</span>
-          ${adsets.length>1?`<select class="custom-select daily-adset-sel" data-media="${media}" data-idx="${idx}">${adsetOptions}</select>`:''}
-        </div>
+        <div class="sub-sec-title"><span>일별 상세 데이터</span></div>
         <div class="tbl-wrap" id="dTbl_${idx}"></div>
       </div>
 
       <div class="card">
-        <div class="sub-sec-title">
-          <span>소재별 성과</span>
-          ${adsets.length>1?`<select class="custom-select ads-adset-sel" data-media="${media}" data-idx="${idx}">${adsetOptions}</select>`:''}
-        </div>
+        <div class="sub-sec-title"><span>소재별 성과</span></div>
         <div class="tbl-wrap" id="adsTbl_${idx}"></div>
       </div>
     </div>`;
   }).join('');
 
   // Attach dropdown listeners
-  document.querySelectorAll('.daily-adset-sel, .ads-adset-sel').forEach(sel=>{
+  document.querySelectorAll('.adset-main-sel').forEach(sel=>{
     sel.addEventListener('change', e=>{
       state.adsetFilter[e.target.dataset.media] = e.target.value;
       render();
@@ -586,12 +581,25 @@ function buildMediaCharts(media, idx, dRows) {
   const sub={spent:0,imp:0,clicks:0,revenue:0,orders:0};
   rows.forEach(r=>{sub.spent+=r.spent;sub.imp+=r.imp;sub.clicks+=r.clicks;sub.revenue+=r.revenue;sub.orders+=r.orders||0;});
   const sCtr=sub.imp>0?sub.clicks/sub.imp*100:0, sCpc=sub.clicks>0?sub.spent/sub.clicks:0, sRoas=sub.spent>0?sub.revenue/sub.spent*100:0;
+  const showCols = !!selAdset; // 그룹 선택 시 캠페인/그룹명 컬럼 표시
   document.getElementById(`dTbl_${idx}`).innerHTML=`
     <table>
-      <thead><tr><th>일자</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th><th>주문수</th></tr></thead>
+      <thead><tr>
+        <th>일자</th>
+        ${showCols?`<th style="text-align:left">캠페인</th><th style="text-align:left">그룹명</th>`:''}
+        <th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th><th>주문수</th>
+      </tr></thead>
       <tbody>
-        ${rows.map(r=>`<tr><td>${r.date}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.orders||0)}</td></tr>`).join('')}
-        <tr class="tbl-total"><td>합계</td><td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td><td>${fmt.num(sub.orders)}</td></tr>
+        ${rows.map(r=>`<tr>
+          <td>${r.date}</td>
+          ${showCols?`<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">${r.campaign||'-'}</td><td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">${r.adset||'-'}</td>`:''}
+          <td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.orders||0)}</td>
+        </tr>`).join('')}
+        <tr class="tbl-total">
+          <td>합계</td>
+          ${showCols?`<td>-</td><td>-</td>`:''}
+          <td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td><td>${fmt.num(sub.orders)}</td>
+        </tr>
       </tbody>
     </table>`;
 
@@ -604,12 +612,18 @@ function buildMediaCharts(media, idx, dRows) {
   adsRows.forEach(r=>{aSub.spent+=r.spent;aSub.imp+=r.imp;aSub.clicks+=r.clicks;aSub.revenue+=r.revenue;aSub.orders+=r.orders||0;});
   const aCtr=aSub.imp>0?aSub.clicks/aSub.imp*100:0, aCpc=aSub.clicks>0?aSub.spent/aSub.clicks:0, aRoas=aSub.spent>0?aSub.revenue/aSub.spent*100:0;
 
+  const td = s => `style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left"`;
   document.getElementById(`adsTbl_${idx}`).innerHTML=`
     <table>
-      <thead><tr><th>소재명</th><th>그룹명</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th></tr></thead>
+      <thead><tr><th style="text-align:left">캠페인</th><th style="text-align:left">그룹명</th><th style="text-align:left">소재명</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th></tr></thead>
       <tbody>
-        ${adsRows.map(r=>`<tr><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ads}</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${r.adset}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td></tr>`).join('')}
-        <tr class="tbl-total"><td>합계</td><td>-</td><td>${fmt.won(aSub.spent)}</td><td>${fmt.num(aSub.imp)}</td><td>${fmt.num(aSub.clicks)}</td><td>${fmt.pct(aCtr)}</td><td>${fmt.won(aCpc)}</td><td>${fmt.won(aSub.revenue)}</td><td>${fmt.roas(aRoas)}</td></tr>
+        ${adsRows.map(r=>`<tr>
+          <td ${td()}>${r.campaign||'-'}</td>
+          <td ${td()}>${r.adset||'-'}</td>
+          <td ${td()}>${r.ads||'-'}</td>
+          <td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td>
+        </tr>`).join('')}
+        <tr class="tbl-total"><td>합계</td><td>-</td><td>-</td><td>${fmt.won(aSub.spent)}</td><td>${fmt.num(aSub.imp)}</td><td>${fmt.num(aSub.clicks)}</td><td>${fmt.pct(aCtr)}</td><td>${fmt.won(aCpc)}</td><td>${fmt.won(aSub.revenue)}</td><td>${fmt.roas(aRoas)}</td></tr>
       </tbody>
     </table>`;
 }

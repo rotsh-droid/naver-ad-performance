@@ -320,6 +320,71 @@ const state = { media:'all', dateFrom:null, dateTo:null, quick:null, event:null,
 let parsed = null, charts = {}, _minD = '', _maxD = '', imageMap = {};
 
 // ── Parse ────────────────────────────────────────────────────
+function buildAggregates(rows) {
+  function agg(map) { return Object.values(map).map(r => addMetrics({...r})); }
+  const mMap={}, aMap={}, dMap={}, cpDMap={}, adMap={}, adsMap={};
+  rows.forEach(r => {
+    // media
+    if (!mMap[r.media]) mMap[r.media]={media:r.media,spent:0,imp:0,clicks:0,revenue:0,orders:0,budget:0};
+    const mm=mMap[r.media]; mm.spent+=r.spent;mm.imp+=r.imp;mm.clicks+=r.clicks;mm.revenue+=r.revenue;mm.orders+=r.orders;
+    // adset
+    const ak=r.media+'||'+r.adset;
+    if (!aMap[ak]) aMap[ak]={media:r.media,campaign:r.campaign,adset:r.adset,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    const am=aMap[ak]; am.spent+=r.spent;am.imp+=r.imp;am.clicks+=r.clicks;am.revenue+=r.revenue;am.orders+=r.orders;
+    // daily media
+    const dk=r.media+'||'+r.date;
+    if (!dMap[dk]) dMap[dk]={media:r.media,date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    const dm=dMap[dk]; dm.spent+=r.spent;dm.imp+=r.imp;dm.clicks+=r.clicks;dm.revenue+=r.revenue;dm.orders+=r.orders;
+    // daily campaign
+    const cpk=r.campaign+'||'+r.date;
+    if (!cpDMap[cpk]) cpDMap[cpk]={campaign:r.campaign,date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    const cpm=cpDMap[cpk]; cpm.spent+=r.spent;cpm.imp+=r.imp;cpm.clicks+=r.clicks;cpm.revenue+=r.revenue;cpm.orders+=r.orders;
+    // daily adset
+    const adk=r.media+'||'+r.adset+'||'+r.date;
+    if (!adMap[adk]) adMap[adk]={media:r.media,campaign:r.campaign,adset:r.adset,date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    const adm=adMap[adk]; adm.spent+=r.spent;adm.imp+=r.imp;adm.clicks+=r.clicks;adm.revenue+=r.revenue;adm.orders+=r.orders;
+    // ads
+    const ask=r.media+'||'+r.adset+'||'+r.ads;
+    if (!adsMap[ask]) adsMap[ask]={media:r.media,campaign:r.campaign,adset:r.adset,ads:r.ads,spent:0,imp:0,clicks:0,revenue:0,orders:0};
+    const asm=adsMap[ask]; asm.spent+=r.spent;asm.imp+=r.imp;asm.clicks+=r.clicks;asm.revenue+=r.revenue;asm.orders+=r.orders;
+  });
+  // lookup tables
+  const mediaToCampaigns={}, campaignToAdsets={};
+  rows.forEach(r=>{
+    if(!mediaToCampaigns[r.media]) mediaToCampaigns[r.media]=new Set();
+    mediaToCampaigns[r.media].add(r.campaign);
+    if(!campaignToAdsets[r.campaign]) campaignToAdsets[r.campaign]=new Set();
+    campaignToAdsets[r.campaign].add(r.adset);
+  });
+  Object.keys(mediaToCampaigns).forEach(k=>mediaToCampaigns[k]=[...mediaToCampaigns[k]].sort());
+  Object.keys(campaignToAdsets).forEach(k=>campaignToAdsets[k]=[...campaignToAdsets[k]].sort());
+
+  return {
+    mediaToCampaigns, campaignToAdsets,
+    mediaRows:         agg(mMap),
+    adsetRows:         agg(aMap),
+    dailyRows:         agg(dMap).sort((a,b)=>a.date.localeCompare(b.date)),
+    campaignDailyRows: agg(cpDMap).sort((a,b)=>a.date.localeCompare(b.date)),
+    adsetDailyRows:    agg(adMap).sort((a,b)=>a.date.localeCompare(b.date)),
+    adsRows:           agg(adsMap),
+  };
+}
+
+function applyEventFilter() {
+  const rows = state.event
+    ? parsed._rawRows.filter(r => r.event === state.event)
+    : parsed._rawRows;
+  const agg = buildAggregates(rows);
+  Object.assign(parsed, agg);
+  // 날짜 범위 업데이트
+  const dates = rows.map(r=>r.date).filter(Boolean).sort();
+  _minD = dates[0]||''; _maxD = dates[dates.length-1]||'';
+  if (!state.dateFrom || state.dateFrom < _minD || state.dateFrom > _maxD) state.dateFrom = _minD;
+  if (!state.dateTo   || state.dateTo   < _minD || state.dateTo   > _maxD) state.dateTo   = _maxD;
+  document.getElementById('dateFrom').value = state.dateFrom;
+  document.getElementById('dateTo').value   = state.dateTo;
+}
+
 function parseRaw(data) {
   const rows = data.map(r => ({
     date:     (r['date']||'').trim(),
@@ -336,77 +401,8 @@ function parseRaw(data) {
   })).filter(r => r.date && /\d{4}-\d{2}-\d{2}/.test(r.date));
 
   const events = [...new Set(rows.map(r=>r.event).filter(Boolean))].sort();
-
-  function agg(map) { return Object.values(map).map(r => addMetrics({...r})); }
-
-  // Media-level
-  const mMap = {};
-  rows.forEach(r => {
-    if (!mMap[r.media]) mMap[r.media]={media:r.media,spent:0,imp:0,clicks:0,revenue:0,orders:0,budget:0};
-    const m=mMap[r.media]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
-  });
-
-  // Adset-level
-  const aMap = {};
-  rows.forEach(r => {
-    const k=r.media+'||'+r.adset;
-    if (!aMap[k]) aMap[k]={media:r.media,campaign:r.campaign,adset:r.adset,spent:0,imp:0,clicks:0,revenue:0,orders:0};
-    const m=aMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
-  });
-
-  // Daily by (media × date)
-  const dMap = {};
-  rows.forEach(r => {
-    const k=r.media+'||'+r.date;
-    if (!dMap[k]) dMap[k]={media:r.media,date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
-    const m=dMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
-  });
-
-  // Daily by (campaign × date)
-  const cpDMap = {};
-  rows.forEach(r => {
-    const k=r.campaign+'||'+r.date;
-    if (!cpDMap[k]) cpDMap[k]={campaign:r.campaign,date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
-    const m=cpDMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
-  });
-
-  // Daily by (media × adset × date)
-  const adMap = {};
-  rows.forEach(r => {
-    const k=r.media+'||'+r.adset+'||'+r.date;
-    if (!adMap[k]) adMap[k]={media:r.media,campaign:r.campaign,adset:r.adset,date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
-    const m=adMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
-  });
-
-  // Ads (creative) by (media × adset × ads)
-  const adsMap = {};
-  rows.forEach(r => {
-    const k=r.media+'||'+r.adset+'||'+r.ads;
-    if (!adsMap[k]) adsMap[k]={media:r.media,campaign:r.campaign,adset:r.adset,ads:r.ads,spent:0,imp:0,clicks:0,revenue:0,orders:0};
-    const m=adsMap[k]; m.spent+=r.spent; m.imp+=r.imp; m.clicks+=r.clicks; m.revenue+=r.revenue; m.orders+=r.orders;
-  });
-
-  // Lookup tables for cascading dropdowns
-  const mediaToCampaigns={}, campaignToAdsets={};
-  rows.forEach(r=>{
-    if(!mediaToCampaigns[r.media]) mediaToCampaigns[r.media]=new Set();
-    mediaToCampaigns[r.media].add(r.campaign);
-    if(!campaignToAdsets[r.campaign]) campaignToAdsets[r.campaign]=new Set();
-    campaignToAdsets[r.campaign].add(r.adset);
-  });
-  Object.keys(mediaToCampaigns).forEach(k=>mediaToCampaigns[k]=[...mediaToCampaigns[k]].sort());
-  Object.keys(campaignToAdsets).forEach(k=>campaignToAdsets[k]=[...campaignToAdsets[k]].sort());
-
-  return {
-    events,
-    mediaToCampaigns, campaignToAdsets,
-    mediaRows:        agg(mMap),
-    adsetRows:        agg(aMap),
-    dailyRows:        agg(dMap).sort((a,b)=>a.date.localeCompare(b.date)),
-    campaignDailyRows:agg(cpDMap).sort((a,b)=>a.date.localeCompare(b.date)),
-    adsetDailyRows:   agg(adMap).sort((a,b)=>a.date.localeCompare(b.date)),
-    adsRows:          agg(adsMap),
-  };
+  const agg = buildAggregates(rows);
+  return { events, _rawRows: rows, ...agg };
 }
 
 // ── Load ─────────────────────────────────────────────────────
@@ -422,7 +418,7 @@ function loadData() {
       });
       Papa.parse(CSV_URL, {
         download:true, header:true, skipEmptyLines:true,
-        complete:({data}) => { parsed=parseRaw(data); initUI(); render(); },
+        complete:({data}) => { parsed=parseRaw(data); initUI(); applyEventFilter(); render(); },
         error:err => { document.getElementById('content').innerHTML=`<div class="state-box">⚠️ 오류: ${err.message}</div>`; }
       });
     },
@@ -430,7 +426,7 @@ function loadData() {
       // 이미지 로드 실패해도 메인 데이터는 표시
       Papa.parse(CSV_URL, {
         download:true, header:true, skipEmptyLines:true,
-        complete:({data}) => { parsed=parseRaw(data); initUI(); render(); },
+        complete:({data}) => { parsed=parseRaw(data); initUI(); applyEventFilter(); render(); },
         error:err => { document.getElementById('content').innerHTML=`<div class="state-box">⚠️ 오류: ${err.message}</div>`; }
       });
     }
@@ -448,7 +444,9 @@ function initUI() {
     item.addEventListener('click',()=>{
       state.event=item.dataset.event;
       nav.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-      item.classList.add('active'); render();
+      item.classList.add('active');
+      applyEventFilter();
+      render();
     });
   });
 

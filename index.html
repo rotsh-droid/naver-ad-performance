@@ -1013,7 +1013,8 @@ function generateAISummary(dRows) {
   if (!parsed || !dRows.length) return '<div style="color:var(--text3);font-size:12px">해당 기간 데이터가 없습니다.</div>';
 
   const sg = v => v >= 0 ? '+' : '';
-  const medias = [...new Set(dRows.map(r=>r.media))];
+  const medias = [...new Set(dRows.map(r=>r.media))]
+    .sort((a,b) => isFb(a) ? -1 : isKakao(a) ? 1 : 0);
   let html = '';
 
   for (const media of medias) {

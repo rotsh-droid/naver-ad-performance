@@ -798,7 +798,7 @@ function buildUnifiedDailyCharts() {
     <table>
       <thead><tr><th>일자</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th><th>주문수</th></tr></thead>
       <tbody>
-        ${rows.map(r=>`<tr><td>${r.date}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.orders||0)}</td></tr>`).join('')}
+        ${rows.filter(r=>r.imp>0||r.clicks>0||r.spent>0).map(r=>`<tr><td>${r.date}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.orders||0)}</td></tr>`).join('')}
         <tr class="tbl-total"><td>합계</td><td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td><td>${fmt.num(sub.orders)}</td></tr>
       </tbody>
     </table>`;
@@ -906,7 +906,7 @@ function buildMediaCharts(media, idx, dRows) {
         <th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th><th>주문수</th>
       </tr></thead>
       <tbody>
-        ${rows.map(r=>`<tr>
+        ${rows.filter(r=>r.imp>0||r.clicks>0||r.spent>0).map(r=>`<tr>
           <td>${r.date}</td>
           ${showCols?`<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">${r.campaign||'-'}</td><td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">${r.adset||'-'}</td>`:''}
           <td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.orders||0)}</td>

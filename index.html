@@ -168,6 +168,13 @@
     .ai-bullets { list-style:none; display:flex; flex-direction:column; gap:7px; }
     .ai-bullets li { font-size:12px; color:var(--text2); padding-left:14px; position:relative; line-height:1.5; }
     .ai-bullets li::before { content:'*'; position:absolute; left:0; color:#22c55e; font-weight:700; }
+    .ai-adset-block { margin-bottom:14px; }
+    .ai-adset-block:last-child { margin-bottom:0; }
+    .ai-adset-label { font-size:11px; font-weight:700; color:var(--text3); background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:6px; padding:4px 10px; margin-bottom:8px; display:inline-block; }
+    .ai-cr-good  { color:#22c55e !important; }
+    .ai-cr-warn  { color:#fbbf24 !important; }
+    .ai-cr-stop  { color:#f87171 !important; }
+    .ai-cr-avg   { color:var(--text3) !important; }
     .ai-num { color:#f1f5f9; font-weight:600; }
 
     /* Creative performance indicators */
@@ -1030,76 +1037,77 @@ function n(v) { return `<span class="ai-num">${v}</span>`; }
 function generateAISummary(dRows) {
   if (!parsed || !dRows.length) return '<div style="color:var(--text3);font-size:12px">해당 기간 데이터가 없습니다.</div>';
 
-  const sg = v => v >= 0 ? '+' : '';
   const medias = [...new Set(dRows.map(r=>r.media))]
     .sort((a,b) => isFb(a) ? -1 : isFb(b) ? 1 : isKakao(a) ? -1 : isKakao(b) ? 1 : 0);
   let html = '';
 
   for (const media of medias) {
-    const dailyRows  = dRows.filter(r=>r.media===media).sort((a,b)=>a.date.localeCompare(b.date));
-    const adsetRows  = parsed.adsetRows.filter(r=>r.media===media);
-    const adsRows    = parsed.adsRows.filter(r=>r.media===media);
-    const label      = isFb(media) ? 'Facebook Ads (Instagram)' : isTiktok(media) ? 'TikTok Ads' : media;
-    const bullets    = [];
+    const adsRows = parsed.adsRows.filter(r=>r.media===media);
+    const label   = isFb(media) ? 'Facebook Ads (Instagram)' : isTiktok(media) ? 'TikTok Ads' : media;
 
-    // ① 최근일 CTR·CPC
-    const dates     = dailyRows.map(r=>r.date).sort();
-    const latest    = dailyRows.find(r=>r.date===dates[dates.length-1]);
-    if (latest) {
-      bullets.push(`${n(dates[dates.length-1])} CTR ${n(fmt.pct(latest.ctr))} · CPC ${n(fmt.won(latest.cpc))} · 광고비 ${n(fmt.won(latest.spent))}`);
-
-      // ② 전일 대비 (2일+ 일 때만)
-      if (dates.length >= 2) {
-        const prev = dailyRows.find(r=>r.date===dates[dates.length-2]);
-        if (prev) {
-          const dc = latest.ctr - prev.ctr;
-          const dp = latest.cpc - prev.cpc;
-          bullets.push(`전일 대비 CTR ${n(sg(dc)+dc.toFixed(2)+'%p')} / CPC ${n(sg(dp)+Math.round(dp).toLocaleString('ko-KR')+'원')}`);
-        }
-      }
-    }
-
-    // ③ 그룹 클릭 1위
-    if (adsetRows.length > 0) {
-      const top = [...adsetRows].sort((a,b)=>b.clicks-a.clicks)[0];
-      bullets.push(`${n(top.adset)} 클릭 ${n(fmt.num(top.clicks)+'건')} · 광고비 ${n(fmt.won(top.spent))} — 그룹 클릭 1위`);
-    }
-
-    // ④ 그룹 내 CTR 상위 소재 (그룹 평균 20%+ 초과 시만)
+    // 그룹별로 소재 묶기
     const adsetMap = {};
     adsRows.forEach(r => { if (!adsetMap[r.adset]) adsetMap[r.adset]=[]; adsetMap[r.adset].push(r); });
-    Object.entries(adsetMap).forEach(([adset, cr]) => {
-      if (cr.length < 2) return;
-      const avgCtr = cr.reduce((s,r)=>s+r.ctr,0)/cr.length;
-      const top    = [...cr].sort((a,b)=>b.ctr-a.ctr)[0];
-      if (top.ctr > avgCtr * 1.2)
-        bullets.push(`${n(top.ads)} CTR ${n(fmt.pct(top.ctr))} · CPC ${n(fmt.won(top.cpc))} — 그룹 평균 대비 CTR ${n('+'+(top.ctr-avgCtr).toFixed(2)+'%p')}`);
-    });
 
-    // ⑤ 전체 소재 CTR·클릭·ROAS 1위
-    if (adsRows.length >= 2) {
-      const byCtr    = [...adsRows].sort((a,b)=>b.ctr-a.ctr);
-      const byClicks = [...adsRows].sort((a,b)=>b.clicks-a.clicks);
-      const byRoas   = [...adsRows].filter(r=>r.roas>0).sort((a,b)=>b.roas-a.roas);
+    let adsetBlocks = '';
 
-      bullets.push(`${n(byCtr[0].ads)} CTR ${n(fmt.pct(byCtr[0].ctr))} · CPC ${n(fmt.won(byCtr[0].cpc))} — 소재 CTR ${n('1위')}`);
+    for (const [adset, creatives] of Object.entries(adsetMap)) {
+      const valid = creatives.filter(r => r.imp > 0 || r.clicks > 0 || r.spent > 0);
+      if (!valid.length) continue;
 
-      if (byClicks[0].ads !== byCtr[0].ads)
-        bullets.push(`${n(byClicks[0].ads)} 클릭 ${n(fmt.num(byClicks[0].clicks)+'건')} — 소재 클릭수 ${n('1위')}`);
+      // 그룹 평균
+      const avgCtr  = valid.reduce((s,r)=>s+r.ctr, 0)  / valid.length;
+      const avgCpc  = valid.reduce((s,r)=>s+r.cpc, 0)  / valid.length;
+      const avgRoas = valid.reduce((s,r)=>s+r.roas, 0) / valid.length;
 
-      if (byRoas.length && byRoas[0].ads !== byCtr[0].ads)
-        bullets.push(`${n(byRoas[0].ads)} ROAS ${n(fmt.roas(byRoas[0].roas))} · 매출 ${n(fmt.won(byRoas[0].revenue))} — 소재 ROAS ${n('1위')}`);
+      const lines = [];
 
-      const low = byCtr[byCtr.length-1];
-      if (low.ads !== byCtr[0].ads)
-        bullets.push(`${n(low.ads)} CTR ${n(fmt.pct(low.ctr))} · CPC ${n(fmt.won(low.cpc))} — 소재 CTR 최하위`);
+      // 그룹 평균 한 줄 요약
+      lines.push(`<span class="ai-cr-avg">그룹 평균 — CTR ${fmt.pct(avgCtr)} · CPC ${fmt.won(avgCpc)} · ROAS ${fmt.roas(avgRoas)}</span>`);
+
+      // 소재별 판정 (소재 2개 이상일 때)
+      if (valid.length >= 2) {
+        valid.forEach(cr => {
+          const lowCtr  = avgCtr  > 0 && cr.ctr  < avgCtr;
+          const highCpc = avgCpc  > 0 && cr.cpc  > avgCpc;
+          const lowRoas = avgRoas > 0 && cr.roas < avgRoas;
+          const badCount = [lowCtr, highCpc, lowRoas].filter(Boolean).length;
+
+          const ctrDiff  = cr.ctr  - avgCtr;
+          const roasDiff = cr.roas - avgRoas;
+          const sg = v => v >= 0 ? '+' : '';
+
+          const name = `<strong>${cr.ads||'-'}</strong>`;
+          const metrics = `CTR ${fmt.pct(cr.ctr)} (${sg(ctrDiff)}${ctrDiff.toFixed(2)}%p) · CPC ${fmt.won(cr.cpc)} · ROAS ${fmt.roas(cr.roas)} (${sg(roasDiff)}${Math.round(roasDiff)}%p)`;
+
+          if (badCount === 3) {
+            lines.push(`<span class="ai-cr-stop">⚠ ${name} — ${metrics} → 교체 검토</span>`);
+          } else if (badCount === 2) {
+            lines.push(`<span class="ai-cr-warn">△ ${name} — ${metrics} → 주의 (모니터링 필요)</span>`);
+          } else if (badCount === 0 && (cr.ctr > avgCtr * 1.1 || cr.roas > avgRoas * 1.1)) {
+            lines.push(`<span class="ai-cr-good">✓ ${name} — ${metrics} → 유지</span>`);
+          } else {
+            lines.push(`<span style="color:var(--text2)">- ${name} — ${metrics}</span>`);
+          }
+        });
+      } else {
+        // 소재 1개인 경우 단순 표시
+        const cr = valid[0];
+        lines.push(`<span style="color:var(--text2)">- <strong>${cr.ads||'-'}</strong> — CTR ${fmt.pct(cr.ctr)} · CPC ${fmt.won(cr.cpc)} · ROAS ${fmt.roas(cr.roas)}</span>`);
+      }
+
+      adsetBlocks += `<div class="ai-adset-block">
+        <div class="ai-adset-label">${adset}</div>
+        <ul class="ai-bullets">${lines.map(l=>`<li>${l}</li>`).join('')}</ul>
+      </div>`;
     }
 
-    html += `
-      <div class="ai-block">
-        <div class="ai-media-label">[${label}]</div>
-        <ul class="ai-bullets">${bullets.map(b=>`<li>${b}</li>`).join('')}</ul>
-      </div>`;
+    if (!adsetBlocks) continue;
+
+    html += `<div class="ai-block">
+      <div class="ai-media-label">[${label}]</div>
+      ${adsetBlocks}
+    </div>`;
   }
 
   return html || '<div style="color:var(--text3);font-size:12px">분석 데이터 없음</div>';

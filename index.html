@@ -408,7 +408,16 @@ function parseRaw(data) {
     event:    (r['기획전명']||'').trim(),
   })).filter(r => r.date && /\d{4}-\d{2}-\d{2}/.test(r.date));
 
-  const events = [...new Set(rows.map(r=>r.event).filter(Boolean))].sort();
+  const EVENT_ORDER = ['1차','2차','7/16 기획전','3차'];
+  const allEvents = [...new Set(rows.map(r=>r.event).filter(Boolean))];
+  const events = allEvents.sort((a,b) => {
+    const ai = EVENT_ORDER.findIndex(o => a.includes(o) || o.includes(a));
+    const bi = EVENT_ORDER.findIndex(o => b.includes(o) || o.includes(b));
+    if (ai===-1 && bi===-1) return a.localeCompare(b);
+    if (ai===-1) return 1;
+    if (bi===-1) return -1;
+    return ai - bi;
+  });
   const agg = buildAggregates(rows);
   return { events, _rawRows: rows, ...agg };
 }

@@ -528,7 +528,8 @@ function initUI() {
       const q=btn.dataset.quick;
       state.quick=q; clearQuick(); btn.classList.add('active');
       const d=new Date(_maxD);
-      if      (q==='7days')  { d.setDate(d.getDate()-6);  setDates(d.toISOString().slice(0,10),_maxD); }
+      if      (q==='yesterday'){ d.setDate(d.getDate()-1); const s=d.toISOString().slice(0,10); setDates(s,s); }
+      else if (q==='7days')  { d.setDate(d.getDate()-6);  setDates(d.toISOString().slice(0,10),_maxD); }
       else if (q==='14days') { d.setDate(d.getDate()-13); setDates(d.toISOString().slice(0,10),_maxD); }
       else if (q==='30days') { d.setDate(d.getDate()-29); setDates(d.toISOString().slice(0,10),_maxD); }
       document.getElementById('weekSel').value='';

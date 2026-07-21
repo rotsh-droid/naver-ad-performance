@@ -1072,6 +1072,36 @@ function generateAISummary(dRows) {
         return [lowCtr, highCpc, lowRoas].filter(Boolean).length;
       };
 
+      // 원인 추론 함수
+      const inferCause = (cr) => {
+        const lowCtr  = avgCtr  > 0 && cr.ctr  < avgCtr;
+        const highCpc = avgCpc  > 0 && cr.cpc  > avgCpc;
+        const lowRoas = avgRoas > 0 && cr.roas < avgRoas;
+
+        // 노출 충분한데 CTR 매우 낮음 → 소재 어필 문제
+        if (cr.imp > 500 && lowCtr && cr.ctr < avgCtr * 0.6) {
+          return '노출 대비 클릭 반응 저조 — 소재 비주얼/카피 어필 부족으로 추정';
+        }
+        // CTR은 나쁘지 않은데 ROAS만 낮음 → 랜딩/타겟 문제
+        if (!lowCtr && lowRoas && cr.clicks >= 5) {
+          return '클릭 유입 대비 전환 미발생 — 랜딩 연결 또는 타겟 미스매치 추정';
+        }
+        // CPC가 평균의 1.5배 이상 → 경쟁/품질지수 문제
+        if (highCpc && avgCpc > 0 && cr.cpc > avgCpc * 1.5) {
+          return `CPC ${fmt.won(cr.cpc)} (그룹 평균 ${fmt.won(avgCpc)} 대비 ${Math.round(cr.cpc/avgCpc*100-100)}% 초과) — 경쟁 심화 또는 소재 품질지수 저하 추정`;
+        }
+        // 노출 자체가 매우 적음 → 게재 이슈
+        if (cr.imp < 100 && cr.spent > 0) {
+          return '게재량 저조 — 소재 심사 이슈 또는 예산 배분 집중 부족 추정';
+        }
+        // CTR 낮고 CPC도 높음 → 소재 피로도
+        if (lowCtr && highCpc) {
+          return 'CTR 저조 + CPC 상승 동반 — 소재 피로도 또는 타겟 소진 추정';
+        }
+        // 전 지표 동반 저조 → 종합 부진
+        return '전 지표 동반 저조 — 소재 전반 효율 점검 필요';
+      };
+
       const noClick    = valid.filter(r => r.clicks === 0);
       const topCrs     = valid.filter(r => r.clicks > 0 && getBadCount(r) === 0 && r.ctr >= avgCtr * 1.1).sort((a,b)=>b.ctr-a.ctr);
       const replaceCrs = valid.filter(r => r.clicks > 0 && getBadCount(r) === 3);
@@ -1081,12 +1111,11 @@ function generateAISummary(dRows) {
 
       // ① 우수 소재
       if (topCrs.length > 0) {
-        const names = topCrs.slice(0,2).map(r=>n(r.ads||'-')).join(', ');
-        const best  = topCrs[0];
+        const best = topCrs[0];
         if (topCrs.length === 1) {
           paras.push(`<p class="good">${n(best.ads||'-')} 소재가 CTR ${fmt.pct(best.ctr)}, CPC ${fmt.won(best.cpc)}으로 그룹 효율 견인</p>`);
         } else {
-          paras.push(`<p class="good">${names} 소재가 각각 CTR ${fmt.pct(topCrs[0].ctr)}, ${fmt.pct(topCrs[1].ctr)}으로 그룹 효율 견인</p>`);
+          paras.push(`<p class="good">${topCrs.slice(0,2).map(r=>n(r.ads||'-')).join(', ')} 소재가 각각 CTR ${fmt.pct(topCrs[0].ctr)}, ${fmt.pct(topCrs[1].ctr)}으로 그룹 효율 견인</p>`);
         }
       }
 
@@ -1096,18 +1125,17 @@ function generateAISummary(dRows) {
         paras.push(`<p>${names} 소재 클릭 미발생</p>`);
       }
 
-      // ③ 교체 검토 소재 (3개 지표 모두 평균 이하)
+      // ③ 교체 검토 소재 (3개 지표 모두 평균 이하) + 원인 추론
       replaceCrs.forEach(cr => {
-        paras.push(`<p class="action-stop">→ ${n(cr.ads||'-')}: CTR ${fmt.pct(cr.ctr)}, CPC ${fmt.won(cr.cpc)}로 지속 저성과 — OFF 후 신규 소재 투입 제안</p>`);
+        const cause = inferCause(cr);
+        paras.push(`<p class="action-stop">→ ${n(cr.ads||'-')}: CTR ${fmt.pct(cr.ctr)}, CPC ${fmt.won(cr.cpc)}로 지속 저성과<br>&nbsp;&nbsp;&nbsp;(${cause})<br>&nbsp;&nbsp;&nbsp;OFF 후 신규 소재 투입 제안</p>`);
       });
 
-      // ④ 주의 소재 (2개 지표 평균 이하)
-      if (warnCrs.length > 0) {
-        const names = warnCrs.map(r=>n(r.ads||'-')).join(', ');
-        const cpcNote = warnCrs.some(r => avgCpc > 0 && r.cpc > avgCpc * 1.2)
-          ? ` 그룹 평균(${fmt.won(avgCpc)}) 대비 높은 CPC 기록.` : '';
-        paras.push(`<p class="action">→ ${names}: 그룹 평균 대비 성과 저조.${cpcNote} 추가 모니터링 예정</p>`);
-      }
+      // ④ 주의 소재 (2개 지표 평균 이하) + 원인 추론
+      warnCrs.forEach(cr => {
+        const cause = inferCause(cr);
+        paras.push(`<p class="action">→ ${n(cr.ads||'-')}: 그룹 평균 대비 성과 저조<br>&nbsp;&nbsp;&nbsp;(${cause})<br>&nbsp;&nbsp;&nbsp;추가 모니터링 예정</p>`);
+      });
 
       // 소재가 1개뿐이고 특이사항 없는 경우
       if (!paras.length) {

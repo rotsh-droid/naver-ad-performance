@@ -161,7 +161,7 @@
     .ai-card-header { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
     .ai-badge { background:rgba(34,197,94,.15); color:#22c55e; border:1px solid rgba(34,197,94,.3); border-radius:20px; padding:3px 12px; font-size:11px; font-weight:700; letter-spacing:.5px; }
     .ai-period { font-size:11px; color:var(--text3); }
-    .ai-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:24px; }
+    .ai-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; max-width:900px; }
     .ai-block {}
     .ai-media-label { font-size:13px; font-weight:700; color:#a5b4fc; margin-bottom:14px; display:flex; align-items:center; gap:6px; }
     .ai-media-label::before { content:''; display:inline-block; width:3px; height:14px; background:#a5b4fc; border-radius:2px; }
@@ -1125,16 +1125,28 @@ function generateAISummary(dRows) {
         paras.push(`<p>${names} 소재 클릭 미발생</p>`);
       }
 
-      // ③ 교체 검토 소재 (3개 지표 모두 평균 이하) + 원인 추론
+      // ③ 교체 검토 소재 — 같은 원인끼리 묶어 표시
+      const replaceByCause = {};
       replaceCrs.forEach(cr => {
         const cause = inferCause(cr);
-        paras.push(`<p class="action-stop">→ ${n(cr.ads||'-')}: CTR ${fmt.pct(cr.ctr)}, CPC ${fmt.won(cr.cpc)}로 지속 저성과<br>&nbsp;&nbsp;&nbsp;(${cause})<br>&nbsp;&nbsp;&nbsp;OFF 후 신규 소재 투입 제안</p>`);
+        if (!replaceByCause[cause]) replaceByCause[cause] = [];
+        replaceByCause[cause].push(cr);
+      });
+      Object.entries(replaceByCause).forEach(([cause, crs]) => {
+        const names = crs.map(r=>n(r.ads||'-')).join(', ');
+        paras.push(`<p class="action-stop">→ ${names}: 지속 저성과 (${cause}) — OFF 후 신규 소재 투입 제안</p>`);
       });
 
-      // ④ 주의 소재 (2개 지표 평균 이하) + 원인 추론
+      // ④ 주의 소재 — 같은 원인끼리 묶어 표시
+      const warnByCause = {};
       warnCrs.forEach(cr => {
         const cause = inferCause(cr);
-        paras.push(`<p class="action">→ ${n(cr.ads||'-')}: 그룹 평균 대비 성과 저조<br>&nbsp;&nbsp;&nbsp;(${cause})<br>&nbsp;&nbsp;&nbsp;추가 모니터링 예정</p>`);
+        if (!warnByCause[cause]) warnByCause[cause] = [];
+        warnByCause[cause].push(cr);
+      });
+      Object.entries(warnByCause).forEach(([cause, crs]) => {
+        const names = crs.map(r=>n(r.ads||'-')).join(', ');
+        paras.push(`<p class="action">→ ${names}: 그룹 평균 대비 저조 (${cause}) — 추가 모니터링 예정</p>`);
       });
 
       // 소재가 1개뿐이고 특이사항 없는 경우

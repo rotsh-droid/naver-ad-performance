@@ -1,0 +1,12 @@
+{
+  "name": "naver-fashion-ad-dashboard",
+  "version": "1.0.0",
+  "description": "네이버 패션 광고 성과 대시보드",
+  "scripts": {
+    "dev": "npx serve -p 5174 src",
+    "build": "echo 'Static site - no build step required'"
+  },
+  "devDependencies": {
+    "serve": "^14.0.0"
+  }
+}

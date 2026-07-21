@@ -528,7 +528,7 @@ function initUI() {
       const q=btn.dataset.quick;
       state.quick=q; clearQuick(); btn.classList.add('active');
       const d=new Date(_maxD);
-      if      (q==='yesterday'){ const [y,mo,dy]=_maxD.split('-').map(Number); const p=new Date(y,mo-1,dy-1); const s=`${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}-${String(p.getDate()).padStart(2,'0')}`; setDates(s,s); }
+      if      (q==='yesterday'){ const t=new Date(); const p=new Date(t.getFullYear(),t.getMonth(),t.getDate()-1); const s=`${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}-${String(p.getDate()).padStart(2,'0')}`; setDates(s,s); }
       else if (q==='7days')  { d.setDate(d.getDate()-6);  setDates(d.toISOString().slice(0,10),_maxD); }
       else if (q==='14days') { d.setDate(d.getDate()-13); setDates(d.toISOString().slice(0,10),_maxD); }
       else if (q==='30days') { d.setDate(d.getDate()-29); setDates(d.toISOString().slice(0,10),_maxD); }
@@ -653,7 +653,7 @@ function getCompData() {
 function render() {
   if (!parsed) return;
   // 날짜 필터 적용한 집계 재생성
-  view = buildAggregates(parsed._rawRows.filter(filterDate));
+  view = buildAggregates(parsed._rawRows.filter(r => (!state.event || r.event === state.event) && filterDate(r)));
   const comp  = getCompData();
   const dRows = view.dailyRows.filter(filterMedia);
   const dailyMedias = [...new Set(dRows.map(r=>r.media))];

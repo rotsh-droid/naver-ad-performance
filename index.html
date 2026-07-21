@@ -39,18 +39,26 @@
     .main-wrapper { margin-left: 230px; flex: 1; display: flex; flex-direction: column; }
 
     /* Topbar */
-    .topbar { background: var(--sidebar); border-bottom: 1px solid var(--border); padding: 11px 24px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; position: sticky; top: 0; z-index: 50; }
+    .topbar { background: var(--sidebar); border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; position: sticky; top: 0; z-index: 50; }
     .topbar-label { font-size: 11px; font-weight: 600; color: var(--text3); }
     .media-tabs, .quick-btns { display: flex; gap: 5px; }
-    .media-tab, .quick-btn { padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s; }
+    .media-tab, .quick-btn { padding: 5px 11px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s; white-space:nowrap; }
     .media-tab:hover, .quick-btn:hover { border-color: var(--accent); color: var(--accent); }
     .media-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
     .quick-btn.active { background: rgba(99,102,241,.2); border-color: var(--accent); color: var(--accent); }
-    .topbar-sep { width: 1px; height: 22px; background: var(--border); }
+    .apply-btn { padding: 5px 14px; border-radius: 20px; border: 1px solid var(--accent); background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; transition: all .2s; white-space:nowrap; }
+    .apply-btn:hover { opacity: .85; }
+    .topbar-sep { width: 1px; height: 22px; background: var(--border); flex-shrink:0; }
     .date-range { display: flex; align-items: center; gap: 6px; }
     .date-input { background: var(--card); border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 12px; color: var(--text); outline: none; color-scheme: dark; }
     .date-input:focus { border-color: var(--accent); }
     .date-sep { font-size: 12px; color: var(--text3); }
+    .week-sel { background: var(--card); border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; font-size: 12px; color: var(--text); outline: none; cursor: pointer; max-width: 210px; }
+    .week-sel:focus { border-color: var(--accent); }
+    .cmp-area { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .cmp-btn { padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 11px; font-weight: 600; cursor: pointer; transition: all .2s; }
+    .cmp-btn.active { background: rgba(99,102,241,.2); border-color: var(--accent); color: var(--accent); }
+    .cmp-label { font-size: 11px; color: var(--text3); white-space: nowrap; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 6px; padding: 3px 9px; }
 
     /* Content */
     .content { padding: 22px 24px; display: flex; flex-direction: column; gap: 22px; }
@@ -220,15 +228,25 @@
         <input type="date" id="dateFrom" class="date-input" />
         <span class="date-sep">~</span>
         <input type="date" id="dateTo" class="date-input" />
-        <button id="applyDate" class="quick-btn" style="background:var(--accent);border-color:var(--accent);color:#fff;padding:5px 14px">적용</button>
+        <select id="weekSel" class="week-sel"><option value="">주차 선택</option></select>
       </div>
-      <div class="topbar-sep"></div>
-      <span class="topbar-label">최근</span>
       <div class="quick-btns">
-        <button class="quick-btn" data-quick="all">전체</button>
-        <button class="quick-btn" data-quick="yesterday">어제</button>
         <button class="quick-btn" data-quick="7days">7일</button>
         <button class="quick-btn" data-quick="14days">14일</button>
+        <button class="quick-btn" data-quick="30days">30일</button>
+      </div>
+      <button id="applyDate" class="apply-btn">적용</button>
+      <div class="topbar-sep"></div>
+      <button id="compareToggle" class="quick-btn">비교</button>
+      <div id="compareArea" class="cmp-area" style="display:none">
+        <button class="cmp-btn active" data-cmp="auto">자동</button>
+        <button class="cmp-btn" data-cmp="manual">직접 선택</button>
+        <div id="cmpManual" style="display:none;align-items:center;gap:4px">
+          <input type="date" id="cmpFrom" class="date-input" />
+          <span class="date-sep">~</span>
+          <input type="date" id="cmpTo" class="date-input" />
+        </div>
+        <span id="cmpLabel" class="cmp-label"></span>
       </div>
     </div>
     <div class="content" id="content">
@@ -329,7 +347,8 @@ function addMetrics(r) { r.ctr=r.imp>0?r.clicks/r.imp*100:0; r.cpc=r.clicks>0?r.
 
 // ── State ────────────────────────────────────────────────────
 const state = { media:'all', dateFrom:null, dateTo:null, quick:null, event:null, adsetFilter:{},
-  odMedia:'', odCampaign:'', odAdset:'' };
+  odMedia:'', odCampaign:'', odAdset:'',
+  cmpMode:false, cmpAuto:true, cmpFrom:null, cmpTo:null };
 let parsed = null, charts = {}, _minD = '', _maxD = '', imageMap = {};
 
 // ── Parse ────────────────────────────────────────────────────
@@ -486,30 +505,119 @@ function initUI() {
     });
   });
 
-  document.getElementById('dateFrom').addEventListener('change',e=>{state.dateFrom=e.target.value;state.quick=null;clearQuick();});
-  document.getElementById('dateTo').addEventListener('change',e=>{state.dateTo=e.target.value;state.quick=null;clearQuick();});
+  // 주차 드롭다운 빌드
+  buildWeekOptions();
+
+  document.getElementById('dateFrom').addEventListener('change',e=>{state.dateFrom=e.target.value;state.quick=null;clearQuick();document.getElementById('weekSel').value='';updateCmpLabel();});
+  document.getElementById('dateTo').addEventListener('change',e=>{state.dateTo=e.target.value;state.quick=null;clearQuick();document.getElementById('weekSel').value='';updateCmpLabel();});
   document.getElementById('applyDate').addEventListener('click',()=>{render();});
 
-  document.querySelectorAll('.quick-btn').forEach(btn=>{
+  document.getElementById('weekSel').addEventListener('change', e=>{
+    const val = e.target.value;
+    if (!val) return;
+    const [from, to] = val.split('|');
+    state.quick=null; clearQuick();
+    setDates(from, to);
+    updateCmpLabel();
+    render();
+  });
+
+  document.querySelectorAll('.quick-btn[data-quick]').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const q=btn.dataset.quick;
-      if (state.quick===q && q!=='all') { state.quick=null; clearQuick(); setDates(_minD,_maxD); }
-      else {
-        state.quick=q; clearQuick(); btn.classList.add('active');
-        if (q==='all') { setDates(_minD,_maxD); }
-        else {
-          const d=new Date(_maxD);
-          if (q==='yesterday') { d.setDate(d.getDate()-1); const s=d.toISOString().slice(0,10); setDates(s,s); }
-          else if (q==='7days')  { d.setDate(d.getDate()-6);  setDates(d.toISOString().slice(0,10),_maxD); }
-          else if (q==='14days') { d.setDate(d.getDate()-13); setDates(d.toISOString().slice(0,10),_maxD); }
-        }
-      }
+      state.quick=q; clearQuick(); btn.classList.add('active');
+      const d=new Date(_maxD);
+      if      (q==='7days')  { d.setDate(d.getDate()-6);  setDates(d.toISOString().slice(0,10),_maxD); }
+      else if (q==='14days') { d.setDate(d.getDate()-13); setDates(d.toISOString().slice(0,10),_maxD); }
+      else if (q==='30days') { d.setDate(d.getDate()-29); setDates(d.toISOString().slice(0,10),_maxD); }
+      document.getElementById('weekSel').value='';
+      updateCmpLabel();
       render();
     });
   });
+
+  // 비교 토글
+  document.getElementById('compareToggle').addEventListener('click', ()=>{
+    state.cmpMode = !state.cmpMode;
+    document.getElementById('compareToggle').classList.toggle('active', state.cmpMode);
+    document.getElementById('compareArea').style.display = state.cmpMode ? 'flex' : 'none';
+    if (state.cmpMode) updateCmpLabel();
+  });
+
+  document.querySelectorAll('.cmp-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.cmp-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.cmpAuto = btn.dataset.cmp === 'auto';
+      document.getElementById('cmpManual').style.display = state.cmpAuto ? 'none' : 'flex';
+      updateCmpLabel();
+    });
+  });
+
+  document.getElementById('cmpFrom').addEventListener('change', e=>{ state.cmpFrom=e.target.value; updateCmpLabel(); });
+  document.getElementById('cmpTo').addEventListener('change',   e=>{ state.cmpTo=e.target.value;   updateCmpLabel(); });
 }
 
-function clearQuick() { document.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active')); }
+function buildWeekOptions() {
+  const sel = document.getElementById('weekSel');
+  const dates = [...new Set(parsed.dailyRows.map(r=>r.date))].sort();
+  if (!dates.length) return;
+
+  // 날짜별로 월요일 기준 주 묶기
+  const weekMap = {};
+  dates.forEach(d => {
+    const dt = new Date(d);
+    const dow = (dt.getDay() + 6) % 7; // 월=0
+    const mon = new Date(dt); mon.setDate(dt.getDate() - dow);
+    const key = mon.toISOString().slice(0,10);
+    if (!weekMap[key]) weekMap[key] = { min: d, max: d };
+    if (d < weekMap[key].min) weekMap[key].min = d;
+    if (d > weekMap[key].max) weekMap[key].max = d;
+  });
+
+  // ISO 주차 번호 계산
+  const getISOWeek = d => {
+    const dt = new Date(d);
+    dt.setHours(0,0,0,0);
+    dt.setDate(dt.getDate() + 3 - (dt.getDay() + 6) % 7);
+    const week1 = new Date(dt.getFullYear(), 0, 4);
+    return 1 + Math.round(((dt - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  };
+
+  const fmtD = s => s.replace(/-/g,'.'); // 2026-05-01 → 2026.05.01
+  const entries = Object.entries(weekMap).sort((a,b)=>b[0].localeCompare(a[0])); // 최신순
+  sel.innerHTML = '<option value="">주차 선택</option>' +
+    entries.map(([mon, {min, max}]) => {
+      const wn = getISOWeek(mon);
+      const label = `${wn}주차 (${fmtD(min)}~${fmtD(max)})`;
+      return `<option value="${min}|${max}">${label}</option>`;
+    }).join('');
+}
+
+function updateCmpLabel() {
+  if (!state.cmpMode) return;
+  const label = document.getElementById('cmpLabel');
+  const manual = document.getElementById('cmpManual');
+
+  if (state.cmpAuto) {
+    manual.style.display = 'none';
+    const from = new Date(state.dateFrom), to = new Date(state.dateTo);
+    const days = Math.round((to - from) / 86400000) + 1;
+    const cTo = new Date(from); cTo.setDate(cTo.getDate() - 1);
+    const cFrom = new Date(cTo); cFrom.setDate(cFrom.getDate() - days + 1);
+    state.cmpFrom = cFrom.toISOString().slice(0,10);
+    state.cmpTo   = cTo.toISOString().slice(0,10);
+    label.textContent = `vs ${state.cmpFrom.replace(/-/g,'.')}~${state.cmpTo.replace(/-/g,'.')}`;
+  } else {
+    manual.style.display = 'flex';
+    if (state.cmpFrom && state.cmpTo)
+      label.textContent = `vs ${state.cmpFrom.replace(/-/g,'.')}~${state.cmpTo.replace(/-/g,'.')}`;
+    else
+      label.textContent = '비교 기간 선택';
+  }
+}
+
+function clearQuick() { document.querySelectorAll('.quick-btn[data-quick]').forEach(b=>b.classList.remove('active')); }
 function setDates(from,to) {
   state.dateFrom=from; state.dateTo=to;
   document.getElementById('dateFrom').value=from;

@@ -820,18 +820,18 @@ function renderCompTable(comp, total) {
 // ── Unified daily section (전체 탭) ───────────────────────────
 function renderUnifiedDailySection() {
   const el = document.getElementById('dailySections');
-  const allMedias = [...new Set(parsed.dailyRows.map(r=>r.media))];
+  const allMedias = [...new Set(view.dailyRows.map(r=>r.media))];
 
   // 캠페인 목록: 매체 선택 시 해당 매체 캠페인만
   const campaigns = state.odMedia
-    ? (parsed.mediaToCampaigns[state.odMedia]||[])
-    : [...new Set(parsed.campaignDailyRows.map(r=>r.campaign))].sort();
+    ? (view.mediaToCampaigns[state.odMedia]||[])
+    : [...new Set(view.campaignDailyRows.map(r=>r.campaign))].sort();
 
   // 그룹 목록: 캠페인 선택 시 해당 캠페인 그룹만, 아니면 매체 기준
   let adsets;
-  if (state.odCampaign)     adsets = parsed.campaignToAdsets[state.odCampaign]||[];
-  else if (state.odMedia)   adsets = [...new Set(Object.entries(parsed.campaignToAdsets).filter(([c])=>(parsed.mediaToCampaigns[state.odMedia]||[]).includes(c)).flatMap(([,a])=>a))].sort();
-  else                       adsets = [...new Set(parsed.adsetDailyRows.map(r=>r.adset))].sort();
+  if (state.odCampaign)     adsets = view.campaignToAdsets[state.odCampaign]||[];
+  else if (state.odMedia)   adsets = [...new Set(Object.entries(view.campaignToAdsets).filter(([c])=>(view.mediaToCampaigns[state.odMedia]||[]).includes(c)).flatMap(([,a])=>a))].sort();
+  else                       adsets = [...new Set(view.adsetDailyRows.map(r=>r.adset))].sort();
 
   const sel = v => v ? `selected` : '';
 
@@ -875,14 +875,14 @@ function renderUnifiedDailySection() {
 function buildUnifiedDailyCharts() {
   let rows;
   if (state.odAdset) {
-    rows = parsed.adsetDailyRows.filter(r=>r.adset===state.odAdset&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
+    rows = view.adsetDailyRows.filter(r=>r.adset===state.odAdset&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
   } else if (state.odCampaign) {
-    rows = parsed.campaignDailyRows.filter(r=>r.campaign===state.odCampaign&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
+    rows = view.campaignDailyRows.filter(r=>r.campaign===state.odCampaign&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
   } else if (state.odMedia) {
-    rows = parsed.dailyRows.filter(r=>r.media===state.odMedia&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
+    rows = view.dailyRows.filter(r=>r.media===state.odMedia&&filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
   } else {
     const m={};
-    parsed.dailyRows.filter(filterDate).forEach(r=>{
+    view.dailyRows.filter(filterDate).forEach(r=>{
       if(!m[r.date]) m[r.date]={date:r.date,spent:0,imp:0,clicks:0,revenue:0,orders:0};
       const d=m[r.date]; d.spent+=r.spent;d.imp+=r.imp;d.clicks+=r.clicks;d.revenue+=r.revenue;d.orders+=r.orders||0;
     });
@@ -991,7 +991,7 @@ function buildMediaCharts(media, idx, dRows) {
   // Daily rows for charts: filtered by adset if selected
   let rows;
   if (selAdset) {
-    rows = parsed.adsetDailyRows.filter(r => r.media===media && r.adset===selAdset && filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
+    rows = view.adsetDailyRows.filter(r => r.media===media && r.adset===selAdset && filterDate(r)).sort((a,b)=>a.date.localeCompare(b.date));
   } else {
     rows = dRows.filter(r=>r.media===media).sort((a,b)=>a.date.localeCompare(b.date));
   }

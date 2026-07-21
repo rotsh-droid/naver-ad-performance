@@ -166,7 +166,12 @@
       background: linear-gradient(135deg, rgba(34,197,94,.07) 0%, rgba(99,102,241,.07) 100%);
       border: 1px solid rgba(99,102,241,.25); border-radius: 12px; padding: 20px 24px;
     }
-    .ai-card-header { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+    .ai-card-header { display:flex; align-items:center; gap:10px; margin-bottom:16px; cursor:pointer; user-select:none; }
+    .ai-card-header:hover .ai-toggle { opacity:.7; }
+    .ai-toggle { margin-left:auto; font-size:12px; color:var(--text3); transition:transform .25s; }
+    .ai-toggle.open { transform:rotate(180deg); }
+    .ai-body { overflow:hidden; transition:max-height .3s ease, opacity .3s ease; }
+    .ai-body.collapsed { max-height:0 !important; opacity:0; }
     .ai-badge { background:rgba(34,197,94,.15); color:#22c55e; border:1px solid rgba(34,197,94,.3); border-radius:20px; padding:3px 12px; font-size:11px; font-weight:700; letter-spacing:.5px; }
     .ai-period { font-size:11px; color:var(--text3); }
     .ai-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; }
@@ -349,7 +354,7 @@ function addMetrics(r) { r.ctr=r.imp>0?r.clicks/r.imp*100:0; r.cpc=r.clicks>0?r.
 // ── State ────────────────────────────────────────────────────
 const state = { media:'all', dateFrom:null, dateTo:null, quick:null, event:null, adsetFilter:{},
   odMedia:'', odCampaign:'', odAdset:'',
-  cmpMode:false, cmpAuto:true, cmpFrom:null, cmpTo:null };
+  cmpMode:false, cmpAuto:true, cmpFrom:null, cmpTo:null, aiOpen:false };
 let parsed = null, view = null, charts = {}, _minD = '', _maxD = '', imageMap = {};
 
 // ── Parse ────────────────────────────────────────────────────
@@ -620,6 +625,22 @@ function updateCmpLabel() {
 }
 
 function clearQuick() { document.querySelectorAll('.quick-btn[data-quick]').forEach(b=>b.classList.remove('active')); }
+
+function toggleAISummary() {
+  state.aiOpen = !state.aiOpen;
+  const body = document.getElementById('aiBody');
+  const icon = document.getElementById('aiToggleIcon');
+  if (!body) return;
+  if (state.aiOpen) {
+    body.classList.remove('collapsed');
+    body.style.maxHeight = body.scrollHeight + 'px';
+    body.style.opacity = '1';
+  } else {
+    body.style.maxHeight = body.scrollHeight + 'px';
+    requestAnimationFrame(() => { body.classList.add('collapsed'); });
+  }
+  if (icon) icon.classList.toggle('open', state.aiOpen);
+}
 function setDates(from,to) {
   state.dateFrom=from; state.dateTo=to;
   document.getElementById('dateFrom').value=from;
@@ -689,11 +710,14 @@ function render() {
     </div>
 
     ${state.media==='all' ? `<div class="ai-card">
-      <div class="ai-card-header">
+      <div class="ai-card-header" onclick="toggleAISummary()">
         <span class="ai-badge">AI 요약</span>
         <span class="ai-period">${dateStr} 기준 성과 분석</span>
+        <span class="ai-toggle ${state.aiOpen?'open':''}" id="aiToggleIcon">▼</span>
       </div>
-      <div class="ai-grid" id="aiSummary"><div style="color:var(--text3);font-size:12px">분석 중…</div></div>
+      <div class="ai-body ${state.aiOpen?'':'collapsed'}" id="aiBody">
+        <div class="ai-grid" id="aiSummary"><div style="color:var(--text3);font-size:12px">분석 중…</div></div>
+      </div>
     </div>` : ''}
 
     <div>
@@ -734,6 +758,12 @@ function render() {
   if (state.media === 'all') {
     const el = document.getElementById('aiSummary');
     if (el) el.innerHTML = generateAISummary(dRows);
+    // 열린 상태면 높이 재계산
+    const aiBody = document.getElementById('aiBody');
+    if (aiBody && state.aiOpen) {
+      aiBody.style.maxHeight = 'none';
+      aiBody.style.opacity = '1';
+    }
     renderUnifiedDailySection();
   } else {
     renderDailySections(dailyMedias, dRows);

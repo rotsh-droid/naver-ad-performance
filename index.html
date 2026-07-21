@@ -161,20 +161,17 @@
     .ai-card-header { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
     .ai-badge { background:rgba(34,197,94,.15); color:#22c55e; border:1px solid rgba(34,197,94,.3); border-radius:20px; padding:3px 12px; font-size:11px; font-weight:700; letter-spacing:.5px; }
     .ai-period { font-size:11px; color:var(--text3); }
-    .ai-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; }
+    .ai-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:24px; }
     .ai-block {}
-    .ai-media-label { font-size:12px; font-weight:700; color:#a5b4fc; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+    .ai-media-label { font-size:13px; font-weight:700; color:#a5b4fc; margin-bottom:14px; display:flex; align-items:center; gap:6px; }
     .ai-media-label::before { content:''; display:inline-block; width:3px; height:14px; background:#a5b4fc; border-radius:2px; }
-    .ai-bullets { list-style:none; display:flex; flex-direction:column; gap:7px; }
-    .ai-bullets li { font-size:12px; color:var(--text2); padding-left:14px; position:relative; line-height:1.5; }
-    .ai-bullets li::before { content:'*'; position:absolute; left:0; color:#22c55e; font-weight:700; }
-    .ai-adset-block { margin-bottom:14px; }
+    .ai-adset-block { margin-bottom:18px; }
     .ai-adset-block:last-child { margin-bottom:0; }
-    .ai-adset-label { font-size:11px; font-weight:700; color:var(--text3); background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:6px; padding:4px 10px; margin-bottom:8px; display:inline-block; }
-    .ai-cr-good  { color:#22c55e !important; }
-    .ai-cr-warn  { color:#fbbf24 !important; }
-    .ai-cr-stop  { color:#f87171 !important; }
-    .ai-cr-avg   { color:var(--text3) !important; }
+    .ai-adset-header { font-size:12px; font-weight:700; color:var(--text); margin-bottom:8px; }
+    .ai-adset-body p { font-size:12px; color:var(--text2); line-height:1.65; margin-bottom:5px; }
+    .ai-adset-body p.action { color:#fbbf24; padding-left:4px; }
+    .ai-adset-body p.action-stop { color:#f87171; padding-left:4px; }
+    .ai-adset-body p.good { color:#22c55e; }
     .ai-num { color:#f1f5f9; font-weight:600; }
 
     /* Creative performance indicators */
@@ -1039,15 +1036,16 @@ function n(v) { return `<span class="ai-num">${v}</span>`; }
 function generateAISummary(dRows) {
   if (!parsed || !dRows.length) return '<div style="color:var(--text3);font-size:12px">해당 기간 데이터가 없습니다.</div>';
 
+  const n = s => `<strong>${s}</strong>`;
   const medias = [...new Set(dRows.map(r=>r.media))]
     .sort((a,b) => isFb(a) ? -1 : isFb(b) ? 1 : isKakao(a) ? -1 : isKakao(b) ? 1 : 0);
   let html = '';
 
   for (const media of medias) {
-    const adsRows = parsed.adsRows.filter(r=>r.media===media);
-    const label   = isFb(media) ? 'Facebook Ads (Instagram)' : isTiktok(media) ? 'TikTok Ads' : media;
+    const adsRows   = parsed.adsRows.filter(r=>r.media===media);
+    const adsetAgg  = parsed.adsetRows.filter(r=>r.media===media);
+    const label     = isFb(media) ? '인스타그램' : isTiktok(media) ? 'TikTok' : media;
 
-    // 그룹별로 소재 묶기
     const adsetMap = {};
     adsRows.forEach(r => { if (!adsetMap[r.adset]) adsetMap[r.adset]=[]; adsetMap[r.adset].push(r); });
 
@@ -1057,50 +1055,69 @@ function generateAISummary(dRows) {
       const valid = creatives.filter(r => r.imp > 0 || r.clicks > 0 || r.spent > 0);
       if (!valid.length) continue;
 
-      // 그룹 평균
+      // 그룹 집계 (adsetRows 기반, 없으면 소재 합산)
+      const agg = adsetAgg.find(r=>r.adset===adset);
+      const grpCtr = agg?.ctr  ?? (valid.reduce((s,r)=>s+r.imp,0)>0 ? valid.reduce((s,r)=>s+r.clicks,0)/valid.reduce((s,r)=>s+r.imp,0)*100 : 0);
+      const grpCpc = agg?.cpc  ?? (valid.reduce((s,r)=>s+r.clicks,0)>0 ? valid.reduce((s,r)=>s+r.spent,0)/valid.reduce((s,r)=>s+r.clicks,0) : 0);
+
+      // 소재별 판정 기준 (소재 테이블과 동일)
       const avgCtr  = valid.reduce((s,r)=>s+r.ctr, 0)  / valid.length;
       const avgCpc  = valid.reduce((s,r)=>s+r.cpc, 0)  / valid.length;
       const avgRoas = valid.reduce((s,r)=>s+r.roas, 0) / valid.length;
 
-      const lines = [];
+      const getBadCount = r => {
+        const lowCtr  = avgCtr  > 0 && r.ctr  < avgCtr;
+        const highCpc = avgCpc  > 0 && r.cpc  > avgCpc;
+        const lowRoas = avgRoas > 0 && r.roas < avgRoas;
+        return [lowCtr, highCpc, lowRoas].filter(Boolean).length;
+      };
 
-      // 그룹 평균 한 줄 요약
-      lines.push(`<span class="ai-cr-avg">그룹 평균 — CTR ${fmt.pct(avgCtr)} · CPC ${fmt.won(avgCpc)} · ROAS ${fmt.roas(avgRoas)}</span>`);
+      const noClick    = valid.filter(r => r.clicks === 0);
+      const topCrs     = valid.filter(r => r.clicks > 0 && getBadCount(r) === 0 && r.ctr >= avgCtr * 1.1).sort((a,b)=>b.ctr-a.ctr);
+      const replaceCrs = valid.filter(r => r.clicks > 0 && getBadCount(r) === 3);
+      const warnCrs    = valid.filter(r => r.clicks > 0 && getBadCount(r) === 2);
 
-      // 소재별 판정 (소재 2개 이상일 때)
-      if (valid.length >= 2) {
-        valid.forEach(cr => {
-          const lowCtr  = avgCtr  > 0 && cr.ctr  < avgCtr;
-          const highCpc = avgCpc  > 0 && cr.cpc  > avgCpc;
-          const lowRoas = avgRoas > 0 && cr.roas < avgRoas;
-          const badCount = [lowCtr, highCpc, lowRoas].filter(Boolean).length;
+      const paras = [];
 
-          const ctrDiff  = cr.ctr  - avgCtr;
-          const roasDiff = cr.roas - avgRoas;
-          const sg = v => v >= 0 ? '+' : '';
+      // ① 우수 소재
+      if (topCrs.length > 0) {
+        const names = topCrs.slice(0,2).map(r=>n(r.ads||'-')).join(', ');
+        const best  = topCrs[0];
+        if (topCrs.length === 1) {
+          paras.push(`<p class="good">${n(best.ads||'-')} 소재가 CTR ${fmt.pct(best.ctr)}, CPC ${fmt.won(best.cpc)}으로 그룹 효율 견인</p>`);
+        } else {
+          paras.push(`<p class="good">${names} 소재가 각각 CTR ${fmt.pct(topCrs[0].ctr)}, ${fmt.pct(topCrs[1].ctr)}으로 그룹 효율 견인</p>`);
+        }
+      }
 
-          const name = `<strong>${cr.ads||'-'}</strong>`;
-          const metrics = `CTR ${fmt.pct(cr.ctr)} (${sg(ctrDiff)}${ctrDiff.toFixed(2)}%p) · CPC ${fmt.won(cr.cpc)} · ROAS ${fmt.roas(cr.roas)} (${sg(roasDiff)}${Math.round(roasDiff)}%p)`;
+      // ② 클릭 미발생
+      if (noClick.length > 0) {
+        const names = noClick.map(r=>n(r.ads||'-')).join(', ');
+        paras.push(`<p>${names} 소재 클릭 미발생</p>`);
+      }
 
-          if (badCount === 3) {
-            lines.push(`<span class="ai-cr-stop">⚠ ${name} — ${metrics} → 교체 검토</span>`);
-          } else if (badCount === 2) {
-            lines.push(`<span class="ai-cr-warn">△ ${name} — ${metrics} → 주의 (모니터링 필요)</span>`);
-          } else if (badCount === 0 && (cr.ctr > avgCtr * 1.1 || cr.roas > avgRoas * 1.1)) {
-            lines.push(`<span class="ai-cr-good">✓ ${name} — ${metrics} → 유지</span>`);
-          } else {
-            lines.push(`<span style="color:var(--text2)">- ${name} — ${metrics}</span>`);
-          }
-        });
-      } else {
-        // 소재 1개인 경우 단순 표시
+      // ③ 교체 검토 소재 (3개 지표 모두 평균 이하)
+      replaceCrs.forEach(cr => {
+        paras.push(`<p class="action-stop">→ ${n(cr.ads||'-')}: CTR ${fmt.pct(cr.ctr)}, CPC ${fmt.won(cr.cpc)}로 지속 저성과 — OFF 후 신규 소재 투입 제안</p>`);
+      });
+
+      // ④ 주의 소재 (2개 지표 평균 이하)
+      if (warnCrs.length > 0) {
+        const names = warnCrs.map(r=>n(r.ads||'-')).join(', ');
+        const cpcNote = warnCrs.some(r => avgCpc > 0 && r.cpc > avgCpc * 1.2)
+          ? ` 그룹 평균(${fmt.won(avgCpc)}) 대비 높은 CPC 기록.` : '';
+        paras.push(`<p class="action">→ ${names}: 그룹 평균 대비 성과 저조.${cpcNote} 추가 모니터링 예정</p>`);
+      }
+
+      // 소재가 1개뿐이고 특이사항 없는 경우
+      if (!paras.length) {
         const cr = valid[0];
-        lines.push(`<span style="color:var(--text2)">- <strong>${cr.ads||'-'}</strong> — CTR ${fmt.pct(cr.ctr)} · CPC ${fmt.won(cr.cpc)} · ROAS ${fmt.roas(cr.roas)}</span>`);
+        paras.push(`<p>${n(cr.ads||'-')} 단일 소재 운영 중 — CTR ${fmt.pct(cr.ctr)}, CPC ${fmt.won(cr.cpc)}, ROAS ${fmt.roas(cr.roas)}</p>`);
       }
 
       adsetBlocks += `<div class="ai-adset-block">
-        <div class="ai-adset-label">${adset}</div>
-        <ul class="ai-bullets">${lines.map(l=>`<li>${l}</li>`).join('')}</ul>
+        <div class="ai-adset-header">* ${adset} &nbsp; CTR ${fmt.pct(grpCtr)}, CPC ${fmt.won(grpCpc)}</div>
+        <div class="ai-adset-body">${paras.join('')}</div>
       </div>`;
     }
 

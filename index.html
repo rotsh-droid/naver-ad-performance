@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>네이버 패션 광고 성과 대시보드</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
@@ -19,7 +21,7 @@
       --accent:  #6366f1;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { font-family: 'Nanum Gothic', 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
     .layout { display: flex; min-height: 100vh; }
 
     /* Sidebar */
@@ -239,15 +241,13 @@
         <button class="quick-btn" data-quick="yesterday">어제</button>
         <button class="quick-btn" data-quick="7days">7일</button>
         <button class="quick-btn" data-quick="14days">14일</button>
-        <button class="quick-btn" data-quick="30days">30일</button>
+        <button class="quick-btn" data-quick="all">전체</button>
       </div>
       <button id="applyDate" class="apply-btn">적용</button>
       <div class="topbar-sep"></div>
       <button id="compareToggle" class="quick-btn">비교</button>
       <div id="compareArea" class="cmp-area" style="display:none">
-        <button class="cmp-btn active" data-cmp="auto">자동</button>
-        <button class="cmp-btn" data-cmp="manual">직접 선택</button>
-        <div id="cmpManual" style="display:none;align-items:center;gap:4px">
+        <div id="cmpManual" style="display:flex;align-items:center;gap:4px">
           <input type="date" id="cmpFrom" class="date-input" />
           <span class="date-sep">~</span>
           <input type="date" id="cmpTo" class="date-input" />
@@ -421,6 +421,8 @@ function applyEventFilter() {
   if (!state.dateTo   || state.dateTo   < _minD || state.dateTo   > _maxD) state.dateTo   = _maxD;
   document.getElementById('dateFrom').value = state.dateFrom;
   document.getElementById('dateTo').value   = state.dateTo;
+  // 기획전에 맞는 주차 목록 재생성
+  buildWeekOptions();
 }
 
 function parseRaw(data) {
@@ -438,7 +440,7 @@ function parseRaw(data) {
     event:    (r['기획전명']||'').trim(),
   })).filter(r => r.date && /\d{4}-\d{2}-\d{2}/.test(r.date));
 
-  const EVENT_ORDER = ['1차','2차','7/16 기획전','3차'];
+  const EVENT_ORDER = ['1차','2차','단일','3차'];
   const allEvents = [...new Set(rows.map(r=>r.event).filter(Boolean))];
   const events = allEvents.sort((a,b) => {
     const ai = EVENT_ORDER.findIndex(o => a.includes(o) || o.includes(a));
@@ -536,7 +538,7 @@ function initUI() {
       if      (q==='yesterday'){ const t=new Date(); const p=new Date(t.getFullYear(),t.getMonth(),t.getDate()-1); const s=`${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}-${String(p.getDate()).padStart(2,'0')}`; setDates(s,s); }
       else if (q==='7days')  { d.setDate(d.getDate()-6);  setDates(d.toISOString().slice(0,10),_maxD); }
       else if (q==='14days') { d.setDate(d.getDate()-13); setDates(d.toISOString().slice(0,10),_maxD); }
-      else if (q==='30days') { d.setDate(d.getDate()-29); setDates(d.toISOString().slice(0,10),_maxD); }
+      else if (q==='all')    { setDates(_minD, _maxD); }
       document.getElementById('weekSel').value='';
       updateCmpLabel();
       render();
@@ -549,16 +551,6 @@ function initUI() {
     document.getElementById('compareToggle').classList.toggle('active', state.cmpMode);
     document.getElementById('compareArea').style.display = state.cmpMode ? 'flex' : 'none';
     if (state.cmpMode) updateCmpLabel();
-  });
-
-  document.querySelectorAll('.cmp-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('.cmp-btn').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      state.cmpAuto = btn.dataset.cmp === 'auto';
-      document.getElementById('cmpManual').style.display = state.cmpAuto ? 'none' : 'flex';
-      updateCmpLabel();
-    });
   });
 
   document.getElementById('cmpFrom').addEventListener('change', e=>{ state.cmpFrom=e.target.value; updateCmpLabel(); });
@@ -608,24 +600,10 @@ function buildWeekOptions() {
 function updateCmpLabel() {
   if (!state.cmpMode) return;
   const label = document.getElementById('cmpLabel');
-  const manual = document.getElementById('cmpManual');
-
-  if (state.cmpAuto) {
-    manual.style.display = 'none';
-    const from = new Date(state.dateFrom), to = new Date(state.dateTo);
-    const days = Math.round((to - from) / 86400000) + 1;
-    const cTo = new Date(from); cTo.setDate(cTo.getDate() - 1);
-    const cFrom = new Date(cTo); cFrom.setDate(cFrom.getDate() - days + 1);
-    state.cmpFrom = cFrom.toISOString().slice(0,10);
-    state.cmpTo   = cTo.toISOString().slice(0,10);
+  if (state.cmpFrom && state.cmpTo)
     label.textContent = `vs ${state.cmpFrom.replace(/-/g,'.')}~${state.cmpTo.replace(/-/g,'.')}`;
-  } else {
-    manual.style.display = 'flex';
-    if (state.cmpFrom && state.cmpTo)
-      label.textContent = `vs ${state.cmpFrom.replace(/-/g,'.')}~${state.cmpTo.replace(/-/g,'.')}`;
-    else
-      label.textContent = '비교 기간 선택';
-  }
+  else
+    label.textContent = '비교 기간 선택';
 }
 
 function clearQuick() { document.querySelectorAll('.quick-btn[data-quick]').forEach(b=>b.classList.remove('active')); }
@@ -997,12 +975,12 @@ function renderDailySections(mediaList, dRows) {
       </div>
 
       <div class="card">
-        <div class="sub-sec-title"><span>소재별 효율 버블차트</span><span style="font-size:11px;color:var(--text3);font-weight:400">버블 크기 = 광고비 · 색상 = 카테고리</span></div>
-        <div id="bubble_${idx}" style="height:520px;width:100%"></div>
-      </div>
-      <div class="card">
         <div class="sub-sec-title"><span>소재별 성과</span></div>
         <div class="tbl-wrap" id="adsTbl_${idx}"></div>
+      </div>
+      <div class="card">
+        <div class="sub-sec-title"><span>소재별 효율 버블차트</span><span style="font-size:11px;color:var(--text3);font-weight:400">버블 크기 = 광고비 · 색상 = 카테고리</span></div>
+        <div id="bubble_${idx}" style="height:520px;width:100%"></div>
       </div>
     </div>`;
   }).join('');
@@ -1072,7 +1050,7 @@ function buildMediaCharts(media, idx, dRows) {
       <tbody>
         ${rows.filter(r=>r.imp>0||r.clicks>0||r.spent>0).map(r=>`<tr>
           <td>${r.date}</td>
-          ${showCols?`<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">${r.campaign||'-'}</td><td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">${r.adset||'-'}</td>`:''}
+          ${showCols?`<td style="text-align:left;white-space:nowrap;min-width:160px">${r.campaign||'-'}</td><td style="text-align:left;white-space:nowrap;min-width:140px">${r.adset||'-'}</td>`:''}
           <td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.num(r.orders||0)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td>
         </tr>`).join('')}
         <tr class="tbl-total">
@@ -1111,7 +1089,7 @@ function buildMediaCharts(media, idx, dRows) {
     };
   });
 
-  const tdS = `style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left"`;
+  const tdS = `style="text-align:left;white-space:nowrap;min-width:160px"`;
   const kakaoMedia = isKakao(media) || isTiktok(media);
   document.getElementById(`adsTbl_${idx}`).innerHTML=`
     <table style="overflow:visible">

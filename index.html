@@ -99,7 +99,8 @@
     .media-header { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .media-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:20px; font-size:13px; font-weight:700; }
     .badge-fb    { background:rgba(79,131,235,.15); color:#4f83eb; border:1px solid rgba(79,131,235,.3); }
-    .badge-kakao { background:rgba(245,159,0,.15);  color:#f59f00; border:1px solid rgba(245,159,0,.3); }
+    .badge-kakao  { background:rgba(245,159,0,.15);  color:#f59f00; border:1px solid rgba(245,159,0,.3); }
+    .badge-tiktok { background:rgba(20,214,185,.15); color:#14d6b9; border:1px solid rgba(20,214,185,.3); }
 
     /* Dropdown */
     .custom-select {
@@ -204,6 +205,7 @@
         <button class="media-tab active" data-media="all">전체</button>
         <button class="media-tab" data-media="meta">메타</button>
         <button class="media-tab" data-media="kakao">카카오</button>
+        <button class="media-tab" data-media="tiktok">틱톡</button>
       </div>
       <div class="topbar-sep"></div>
       <span class="topbar-label">기간</span>
@@ -280,8 +282,9 @@ Chart.defaults.color = '#94a3b8';
 Chart.defaults.borderColor = '#263347';
 
 const COLORS = {
-  fb:    { bg:'rgba(79,131,235,.8)',  border:'#4f83eb', light:'rgba(79,131,235,.15)' },
-  kakao: { bg:'rgba(245,159,0,.8)',   border:'#f59f00', light:'rgba(245,159,0,.15)'  },
+  fb:     { bg:'rgba(79,131,235,.8)',  border:'#4f83eb', light:'rgba(79,131,235,.15)' },
+  kakao:  { bg:'rgba(245,159,0,.8)',   border:'#f59f00', light:'rgba(245,159,0,.15)'  },
+  tiktok: { bg:'rgba(20,214,185,.8)',  border:'#14d6b9', light:'rgba(20,214,185,.15)' },
 };
 const PALETTE = [
   {bg:'rgba(99,102,241,.8)',border:'#6366f1'},{bg:'rgba(59,130,246,.8)',border:'#3b82f6'},
@@ -308,10 +311,12 @@ function colorOf(m) {
   const k=(m||'').toLowerCase();
   if (k.includes('facebook')||k.includes('meta')||k.includes('fb')) return COLORS.fb;
   if (k.includes('kakao')) return COLORS.kakao;
+  if (k.includes('tiktok')||k.includes('틱톡')) return COLORS.tiktok;
   return {bg:'rgba(148,163,184,.8)',border:'#94a3b8',light:'rgba(148,163,184,.15)'};
 }
-function isFb(m)    { const k=(m||'').toLowerCase(); return k.includes('facebook')||k.includes('meta')||k.includes('fb'); }
-function isKakao(m) { return (m||'').toLowerCase().includes('kakao'); }
+function isFb(m)     { const k=(m||'').toLowerCase(); return k.includes('facebook')||k.includes('meta')||k.includes('fb'); }
+function isKakao(m)  { return (m||'').toLowerCase().includes('kakao'); }
+function isTiktok(m) { const k=(m||'').toLowerCase(); return k.includes('tiktok')||k.includes('틱톡'); }
 function addMetrics(r) { r.ctr=r.imp>0?r.clicks/r.imp*100:0; r.cpc=r.clicks>0?r.spent/r.clicks:0; r.roas=r.spent>0?r.revenue/r.spent*100:0; return r; }
 
 // ── State ────────────────────────────────────────────────────
@@ -495,8 +500,9 @@ function setDates(from,to) {
 
 // ── Filtered helpers ─────────────────────────────────────────
 function filterMedia(r) {
-  if (state.media==='meta'  && !isFb(r.media))    return false;
-  if (state.media==='kakao' && !isKakao(r.media)) return false;
+  if (state.media==='meta'   && !isFb(r.media))     return false;
+  if (state.media==='kakao'  && !isKakao(r.media))  return false;
+  if (state.media==='tiktok' && !isTiktok(r.media)) return false;
   return true;
 }
 function filterDate(r) {
@@ -533,7 +539,7 @@ function render() {
 
   // 매체 탭일 때 그룹 드롭다운 준비
   const currentMediaName = isMediaTab
-    ? (parsed.mediaRows.find(r => state.media==='meta' ? isFb(r.media) : isKakao(r.media))?.media || '')
+    ? (parsed.mediaRows.find(r => state.media==='meta' ? isFb(r.media) : state.media==='kakao' ? isKakao(r.media) : isTiktok(r.media))?.media || '')
     : '';
   const mediaAdsets = currentMediaName
     ? [...new Set(parsed.adsetRows.filter(r=>r.media===currentMediaName).map(r=>r.adset))].sort()
@@ -803,7 +809,7 @@ function renderDailySections(mediaList, dRows) {
   const el=document.getElementById('dailySections'); if(!mediaList.length){el.innerHTML='';return;}
 
   el.innerHTML=mediaList.map((media,idx)=>{
-    const cls=isFb(media)?'badge-fb':'badge-kakao';
+    const cls=isFb(media)?'badge-fb':isTiktok(media)?'badge-tiktok':'badge-kakao';
     // Adsets for this media
     const adsets=[...new Set(parsed.adsetRows.filter(r=>r.media===media).map(r=>r.adset))].sort();
     const selAdset=state.adsetFilter[media]||'';
@@ -942,7 +948,7 @@ function buildMediaCharts(media, idx, dRows) {
   });
 
   const tdS = `style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left"`;
-  const kakaoMedia = isKakao(media);
+  const kakaoMedia = isKakao(media) || isTiktok(media);
   document.getElementById(`adsTbl_${idx}`).innerHTML=`
     <table style="overflow:visible">
       <thead><tr>
@@ -1014,14 +1020,14 @@ function generateAISummary(dRows) {
 
   const sg = v => v >= 0 ? '+' : '';
   const medias = [...new Set(dRows.map(r=>r.media))]
-    .sort((a,b) => isFb(a) ? -1 : isKakao(a) ? 1 : 0);
+    .sort((a,b) => isFb(a) ? -1 : isFb(b) ? 1 : isKakao(a) ? -1 : isKakao(b) ? 1 : 0);
   let html = '';
 
   for (const media of medias) {
     const dailyRows  = dRows.filter(r=>r.media===media).sort((a,b)=>a.date.localeCompare(b.date));
     const adsetRows  = parsed.adsetRows.filter(r=>r.media===media);
     const adsRows    = parsed.adsRows.filter(r=>r.media===media);
-    const label      = isFb(media) ? 'Facebook Ads (Instagram)' : media;
+    const label      = isFb(media) ? 'Facebook Ads (Instagram)' : isTiktok(media) ? 'TikTok Ads' : media;
     const bullets    = [];
 
     // ① 최근일 CTR·CPC

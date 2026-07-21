@@ -223,6 +223,7 @@
         <input type="date" id="dateFrom" class="date-input" />
         <span class="date-sep">~</span>
         <input type="date" id="dateTo" class="date-input" />
+        <button id="applyDate" class="quick-btn" style="background:var(--accent);border-color:var(--accent);color:#fff;padding:5px 14px">적용</button>
       </div>
       <div class="topbar-sep"></div>
       <span class="topbar-label">최근</span>
@@ -488,8 +489,9 @@ function initUI() {
     });
   });
 
-  document.getElementById('dateFrom').addEventListener('change',e=>{state.dateFrom=e.target.value;state.quick=null;clearQuick();render();});
-  document.getElementById('dateTo').addEventListener('change',e=>{state.dateTo=e.target.value;state.quick=null;clearQuick();render();});
+  document.getElementById('dateFrom').addEventListener('change',e=>{state.dateFrom=e.target.value;state.quick=null;clearQuick();});
+  document.getElementById('dateTo').addEventListener('change',e=>{state.dateTo=e.target.value;state.quick=null;clearQuick();});
+  document.getElementById('applyDate').addEventListener('click',()=>{render();});
 
   document.querySelectorAll('.quick-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{

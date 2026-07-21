@@ -528,7 +528,7 @@ function initUI() {
       const q=btn.dataset.quick;
       state.quick=q; clearQuick(); btn.classList.add('active');
       const d=new Date(_maxD);
-      if      (q==='yesterday'){ d.setDate(d.getDate()-1); const s=d.toISOString().slice(0,10); setDates(s,s); }
+      if      (q==='yesterday'){ const [y,mo,dy]=_maxD.split('-').map(Number); const p=new Date(y,mo-1,dy-1); const s=`${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}-${String(p.getDate()).padStart(2,'0')}`; setDates(s,s); }
       else if (q==='7days')  { d.setDate(d.getDate()-6);  setDates(d.toISOString().slice(0,10),_maxD); }
       else if (q==='14days') { d.setDate(d.getDate()-13); setDates(d.toISOString().slice(0,10),_maxD); }
       else if (q==='30days') { d.setDate(d.getDate()-29); setDates(d.toISOString().slice(0,10),_maxD); }
@@ -807,13 +807,13 @@ function renderCompTable(comp, total) {
     const rp=tR>0?(r.revenue/tR*100).toFixed(1):0;
     const dot=`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${comp.colors[i].border};margin-right:6px;flex-shrink:0"></span>`;
     const name=isAdset?r.adset:r.media;
-    return `<tr><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${dot}${name}</td><td>${fmt.won(r.spent)} <small style="color:var(--text3)">(${sp}%)</small></td><td>${fmt.won(r.revenue)} <small style="color:var(--text3)">(${rp}%)</small></td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.num(r.orders)}</td></tr>`;
+    return `<tr><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${dot}${name}</td><td>${fmt.won(r.spent)} <small style="color:var(--text3)">(${sp}%)</small></td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.num(r.orders)}</td><td>${fmt.won(r.revenue)} <small style="color:var(--text3)">(${rp}%)</small></td><td>${fmt.roas(r.roas)}</td></tr>`;
   }).join('');
   const ctr=total.imp>0?total.clicks/total.imp*100:0, cpc=total.clicks>0?total.spent/total.clicks:0;
   document.getElementById('compTable').innerHTML=`
     <table>
-      <thead><tr><th>${firstTh}</th><th>광고비</th><th>거래액</th><th>ROAS</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>주문수</th></tr></thead>
-      <tbody>${tbody}<tr class="tbl-total"><td>합계</td><td>${fmt.won(total.spent)}</td><td>${fmt.won(total.revenue)}</td><td>${fmt.roas(total.roas)}</td><td>${fmt.num(total.imp)}</td><td>${fmt.num(total.clicks)}</td><td>${fmt.pct(ctr)}</td><td>${fmt.won(cpc)}</td><td>${fmt.num(total.orders)}</td></tr></tbody>
+      <thead><tr><th>${firstTh}</th><th>광고비</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>주문수</th><th>거래액</th><th>ROAS</th></tr></thead>
+      <tbody>${tbody}<tr class="tbl-total"><td>합계</td><td>${fmt.won(total.spent)}</td><td>${fmt.num(total.imp)}</td><td>${fmt.num(total.clicks)}</td><td>${fmt.pct(ctr)}</td><td>${fmt.won(cpc)}</td><td>${fmt.num(total.orders)}</td><td>${fmt.won(total.revenue)}</td><td>${fmt.roas(total.roas)}</td></tr></tbody>
     </table>`;
 }
 
@@ -926,10 +926,10 @@ function buildUnifiedDailyCharts() {
   const sCtr=sub.imp>0?sub.clicks/sub.imp*100:0,sCpc=sub.clicks>0?sub.spent/sub.clicks:0,sRoas=sub.spent>0?sub.revenue/sub.spent*100:0;
   document.getElementById('dTbl_u').innerHTML=`
     <table>
-      <thead><tr><th>일자</th><th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th><th>주문수</th></tr></thead>
+      <thead><tr><th>일자</th><th>광고비</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>주문수</th><th>거래액</th><th>ROAS</th></tr></thead>
       <tbody>
-        ${rows.filter(r=>r.imp>0||r.clicks>0||r.spent>0).map(r=>`<tr><td>${r.date}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.orders||0)}</td></tr>`).join('')}
-        <tr class="tbl-total"><td>합계</td><td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td><td>${fmt.num(sub.orders)}</td></tr>
+        ${rows.filter(r=>r.imp>0||r.clicks>0||r.spent>0).map(r=>`<tr><td>${r.date}</td><td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.num(r.orders||0)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td></tr>`).join('')}
+        <tr class="tbl-total"><td>합계</td><td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.num(sub.orders)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td></tr>
       </tbody>
     </table>`;
 }
@@ -1033,18 +1033,18 @@ function buildMediaCharts(media, idx, dRows) {
       <thead><tr>
         <th>일자</th>
         ${showCols?`<th style="text-align:left">캠페인</th><th style="text-align:left">그룹명</th>`:''}
-        <th>비용</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>거래액</th><th>ROAS</th><th>주문수</th>
+        <th>광고비</th><th>노출수</th><th>클릭수</th><th>CTR</th><th>CPC</th><th>주문수</th><th>거래액</th><th>ROAS</th>
       </tr></thead>
       <tbody>
         ${rows.filter(r=>r.imp>0||r.clicks>0||r.spent>0).map(r=>`<tr>
           <td>${r.date}</td>
           ${showCols?`<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">${r.campaign||'-'}</td><td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">${r.adset||'-'}</td>`:''}
-          <td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td><td>${fmt.num(r.orders||0)}</td>
+          <td>${fmt.won(r.spent)}</td><td>${fmt.num(r.imp)}</td><td>${fmt.num(r.clicks)}</td><td>${fmt.pct(r.ctr)}</td><td>${fmt.won(r.cpc)}</td><td>${fmt.num(r.orders||0)}</td><td>${fmt.won(r.revenue)}</td><td>${fmt.roas(r.roas)}</td>
         </tr>`).join('')}
         <tr class="tbl-total">
           <td>합계</td>
           ${showCols?`<td>-</td><td>-</td>`:''}
-          <td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td><td>${fmt.num(sub.orders)}</td>
+          <td>${fmt.won(sub.spent)}</td><td>${fmt.num(sub.imp)}</td><td>${fmt.num(sub.clicks)}</td><td>${fmt.pct(sCtr)}</td><td>${fmt.won(sCpc)}</td><td>${fmt.num(sub.orders)}</td><td>${fmt.won(sub.revenue)}</td><td>${fmt.roas(sRoas)}</td>
         </tr>
       </tbody>
     </table>`;
@@ -1258,7 +1258,7 @@ function generateAISummary(dRows) {
       });
       Object.entries(warnByCause).forEach(([cause, crs]) => {
         const names = crs.map(r=>n(r.ads||'-')).join(', ');
-        paras.push(`<p class="action">→ ${names}: 그룹 평균 대비 저조 (${cause}) — 추가 모니터링 예정</p>`);
+        paras.push(`<p class="action">→ ${names}: 그룹 평균 대비 저조 (${cause})</p>`);
       });
 
       // 소재가 1개뿐이고 특이사항 없는 경우

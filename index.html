@@ -568,36 +568,40 @@ function initUI() {
 function buildWeekOptions() {
   const sel = document.getElementById('weekSel');
   const dates = [...new Set(parsed.dailyRows.map(r=>r.date))].sort();
-  if (!dates.length) return;
+  if (!dates.length) { sel.innerHTML = '<option value="">주차 선택</option>'; return; }
 
-  // 날짜별로 월요일 기준 주 묶기
-  const weekMap = {};
+  // 로컬 시간 기준 날짜 파싱 (timezone 버그 방지)
+  const parseLocal = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+  const toStr = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  const fmtD = s => s.replace(/-/g, '.');
+
+  // 각 날짜의 월요일 키 수집 (중복 제거)
+  const weekSet = new Set();
   dates.forEach(d => {
-    const dt = new Date(d);
+    const dt = parseLocal(d);
     const dow = (dt.getDay() + 6) % 7; // 월=0
-    const mon = new Date(dt); mon.setDate(dt.getDate() - dow);
-    const key = mon.toISOString().slice(0,10);
-    if (!weekMap[key]) weekMap[key] = { min: d, max: d };
-    if (d < weekMap[key].min) weekMap[key].min = d;
-    if (d > weekMap[key].max) weekMap[key].max = d;
+    dt.setDate(dt.getDate() - dow);
+    weekSet.add(toStr(dt));
   });
 
   // ISO 주차 번호 계산
-  const getISOWeek = d => {
-    const dt = new Date(d);
-    dt.setHours(0,0,0,0);
-    dt.setDate(dt.getDate() + 3 - (dt.getDay() + 6) % 7);
+  const getISOWeek = monStr => {
+    const dt = parseLocal(monStr);
+    dt.setDate(dt.getDate() + 3); // 목요일
     const week1 = new Date(dt.getFullYear(), 0, 4);
     return 1 + Math.round(((dt - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
   };
 
-  const fmtD = s => s.replace(/-/g,'.'); // 2026-05-01 → 2026.05.01
-  const entries = Object.entries(weekMap).sort((a,b)=>b[0].localeCompare(a[0])); // 최신순
+  const entries = [...weekSet].sort().reverse(); // 최신순
   sel.innerHTML = '<option value="">주차 선택</option>' +
-    entries.map(([mon, {min, max}]) => {
-      const wn = getISOWeek(mon);
-      const label = `${wn}주차 (${fmtD(min)}~${fmtD(max)})`;
-      return `<option value="${min}|${max}">${label}</option>`;
+    entries.map(monStr => {
+      const mon = parseLocal(monStr);
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      const monS = toStr(mon);
+      const sunS = toStr(sun);
+      const wn = getISOWeek(monStr);
+      const label = `${wn}주차 (${fmtD(monS)}~${fmtD(sunS)})`;
+      return `<option value="${monS}|${sunS}">${label}</option>`;
     }).join('');
 }
 
